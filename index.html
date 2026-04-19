@@ -1,0 +1,2185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClearSign — Legal Contract Simplifier</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg:      #f5f0e8;
+      --surface: #faf7f2;
+      --navy:    #1c2b3a;
+      --blue:    #2d5f8a;
+      --text:    #2c3a47;
+      --muted:   #7a8694;
+      --border:  #e3ddd4;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Navbar ── */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2.5rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      text-decoration: none;
+    }
+
+    .nav-brand .logo-icon {
+      width: 30px;
+      height: 30px;
+      border: 1.5px solid var(--blue);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--blue);
+    }
+
+    .nav-brand .brand-name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: -.2px;
+    }
+
+    .nav-brand .brand-name span { color: var(--blue); }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      list-style: none;
+    }
+
+    .nav-links a {
+      text-decoration: none;
+      color: var(--muted);
+      font-size: .875rem;
+      font-weight: 500;
+      transition: color .15s;
+    }
+
+    .nav-links a:hover { color: var(--navy); }
+
+    /* ── Language toggle ── */
+    .lang-toggle {
+      display: flex;
+      align-items: center;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .lang-btn {
+      background: none;
+      border: none;
+      border-radius: 16px;
+      padding: .25rem .65rem;
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      line-height: 1.4;
+    }
+
+    .lang-btn.active {
+      background: var(--surface);
+      color: var(--navy);
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+
+    .lang-btn:hover:not(.active) { color: var(--text); }
+
+    /* ── Screens ── */
+    .screen { display: none; flex: 1; }
+    .screen.active { display: flex; flex-direction: column; }
+    #home-screen { align-items: stretch; }
+
+    /* ── Hero ── */
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 7rem 1.5rem 5rem;
+      max-width: 680px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.1rem);
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--navy);
+      letter-spacing: -.4px;
+      margin-bottom: 1.25rem;
+    }
+
+    .hero p {
+      font-size: 1.05rem;
+      color: var(--muted);
+      line-height: 1.75;
+      max-width: 500px;
+      margin-bottom: 2.5rem;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      background: var(--blue);
+      color: #fff;
+      font-size: .95rem;
+      font-weight: 600;
+      padding: .8rem 1.75rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background .15s, transform .15s;
+    }
+
+    .btn-primary:hover { background: #254f75; transform: translateY(-1px); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* ── Divider ── */
+    .divider {
+      width: 48px;
+      height: 2px;
+      background: var(--border);
+      margin: 0 auto;
+    }
+
+    /* ── Feature Cards ── */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      max-width: 820px;
+      margin: 4rem auto 6rem;
+      padding: 0 1.5rem;
+      width: 100%;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem 1.25rem;
+    }
+
+    .card-label {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: .6rem;
+    }
+
+    .card h3 { font-size: .95rem; font-weight: 600; color: var(--navy); margin-bottom: .4rem; }
+    .card p  { font-size: .83rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── Upload Screen ── */
+    #upload-screen { align-items: center; justify-content: flex-start; }
+
+    .upload-wrapper {
+      width: 100%;
+      max-width: 600px;
+      padding: 4rem 1.5rem 6rem;
+      margin: 0 auto;
+    }
+
+    .upload-back {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: .85rem;
+      font-weight: 500;
+      padding: 0;
+      margin-bottom: 2.5rem;
+      transition: color .15s;
+    }
+
+    .upload-back:hover { color: var(--navy); }
+    .upload-back svg   { width: 15px; height: 15px; }
+
+    .upload-heading { margin-bottom: 2rem; }
+
+    .upload-heading h2 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: -.3px;
+      margin-bottom: .4rem;
+    }
+
+    .upload-heading p { font-size: .9rem; color: var(--muted); line-height: 1.6; }
+
+    .drop-zone {
+      background: var(--surface);
+      border: 2px dashed var(--border);
+      border-radius: 12px;
+      padding: 3.5rem 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 1rem;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+    }
+
+    .drop-zone:hover,
+    .drop-zone.dragover { border-color: var(--blue); background: #f2ede4; }
+
+    .drop-zone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    .drop-icon {
+      width: 48px;
+      height: 48px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      background: var(--bg);
+      flex-shrink: 0;
+    }
+
+    .drop-icon svg { width: 22px; height: 22px; }
+    .drop-zone h3  { font-size: 1rem; font-weight: 600; color: var(--navy); }
+    .drop-zone p   { font-size: .83rem; color: var(--muted); line-height: 1.5; }
+
+    .btn-browse {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      background: transparent;
+      color: var(--blue);
+      font-size: .875rem;
+      font-weight: 600;
+      padding: .55rem 1.25rem;
+      border: 1.5px solid var(--blue);
+      border-radius: 7px;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      position: relative;
+      z-index: 1;
+    }
+
+    .btn-browse:hover { background: var(--blue); color: #fff; }
+
+    .accepted-types {
+      margin-top: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .type-tag {
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: .2rem .55rem;
+    }
+
+    .accepted-types span.label { font-size: .78rem; color: var(--muted); }
+
+    /* ── Loading Screen ── */
+    #loading-screen {
+      align-items: center;
+      justify-content: center;
+    }
+
+    .loading-body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+      padding: 4rem 1.5rem;
+      text-align: center;
+    }
+
+    .spinner {
+      width: 38px;
+      height: 38px;
+      border: 3px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-label {
+      font-size: .95rem;
+      font-weight: 600;
+      color: var(--navy);
+    }
+
+    .loading-sub {
+      font-size: .83rem;
+      color: var(--muted);
+    }
+
+    /* ── Error Banner ── */
+    .error-banner {
+      background: #fef6f2;
+      border: 1px solid #f0c9b8;
+      border-left: 3px solid #c95f30;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 2rem;
+      font-size: .875rem;
+      color: #7a2e10;
+      line-height: 1.55;
+      display: none;
+    }
+
+    .error-banner.visible { display: block; }
+
+    /* ── Summary Screen ── */
+    #summary-screen { align-items: center; justify-content: flex-start; }
+
+    .summary-wrapper {
+      width: 100%;
+      max-width: 680px;
+      padding: 4rem 1.5rem 6rem;
+      margin: 0 auto;
+    }
+
+    .summary-back {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: .85rem;
+      font-weight: 500;
+      padding: 0;
+      margin-bottom: 2.5rem;
+      transition: color .15s;
+    }
+
+    .summary-back:hover { color: var(--navy); }
+    .summary-back svg   { width: 15px; height: 15px; }
+
+    .summary-meta {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      margin-bottom: .75rem;
+    }
+
+    .file-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      font-size: .75rem;
+      font-weight: 600;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: .25rem .6rem;
+    }
+
+    .file-chip svg { width: 12px; height: 12px; }
+
+    .summary-title {
+      font-size: 1.65rem;
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: -.3px;
+      margin-bottom: .4rem;
+      line-height: 1.25;
+    }
+
+    .summary-subtitle {
+      font-size: .9rem;
+      color: var(--muted);
+      margin-bottom: 2.5rem;
+    }
+
+    .summary-section { margin-bottom: 2rem; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      margin-bottom: 1rem;
+    }
+
+    .section-tag {
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--blue);
+      background: #e8f0f8;
+      border-radius: 4px;
+      padding: .2rem .55rem;
+    }
+
+    .section-title { font-size: 1rem; font-weight: 600; color: var(--navy); }
+
+    .summary-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: .6rem;
+    }
+
+    .summary-list li {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .85rem 1rem;
+      font-size: .875rem;
+      color: var(--text);
+      line-height: 1.55;
+      display: flex;
+      gap: .75rem;
+      align-items: flex-start;
+    }
+
+    .summary-list li::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--blue);
+      flex-shrink: 0;
+      margin-top: .45rem;
+    }
+
+    .section-divider { height: 1px; background: var(--border); margin: 2rem 0; }
+
+    /* Risk flags */
+    .risk-section { margin-bottom: 2.5rem; }
+
+    .risk-header {
+      display: flex;
+      align-items: center;
+      gap: .6rem;
+      margin-bottom: 1rem;
+    }
+
+    .risk-tag {
+      font-size: .68rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: #9a3a1a;
+      background: #fdeee8;
+      border-radius: 4px;
+      padding: .2rem .55rem;
+    }
+
+    .risk-title { font-size: 1rem; font-weight: 600; color: var(--navy); }
+
+    .risk-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: .6rem;
+    }
+
+    .risk-item {
+      background: #fef6f2;
+      border: 1px solid #f0c9b8;
+      border-left: 3px solid #c95f30;
+      border-radius: 8px;
+      padding: .9rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: .3rem;
+    }
+
+    .risk-item-title { font-size: .85rem; font-weight: 600; color: #7a2e10; }
+    .risk-item-body  { font-size: .83rem; color: #9a4a2a; line-height: 1.55; }
+
+    /* Quiz CTA (on summary screen) */
+    .quiz-cta {
+      padding-top: 2.5rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: .75rem;
+      text-align: center;
+    }
+
+    .quiz-cta-label {
+      font-size: .78rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      font-weight: 600;
+    }
+
+    .quiz-cta h3 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .quiz-cta p {
+      font-size: .875rem;
+      color: var(--muted);
+      max-width: 380px;
+      line-height: 1.6;
+    }
+
+    .btn-quiz {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      background: var(--navy);
+      color: #fff;
+      font-size: .95rem;
+      font-weight: 600;
+      padding: .85rem 2rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background .15s, transform .15s;
+    }
+
+    .btn-quiz:hover  { background: #243547; transform: translateY(-1px); }
+    .btn-quiz:active { transform: translateY(0); }
+    .btn-quiz svg    { width: 16px; height: 16px; }
+
+    /* ── Pre-Quiz Screen ── */
+    #prequiz-screen { align-items: center; justify-content: flex-start; }
+
+    .prequiz-intro {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 2rem;
+      font-size: .875rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .prequiz-intro strong { color: var(--navy); }
+
+    .btn-see-summary {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      background: var(--blue);
+      color: #fff;
+      font-size: .95rem;
+      font-weight: 600;
+      padding: .85rem 2rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background .15s, transform .15s;
+      margin-top: .5rem;
+    }
+
+    .btn-see-summary:hover  { background: #254f75; transform: translateY(-1px); }
+    .btn-see-summary:active { transform: translateY(0); }
+    .btn-see-summary svg    { width: 16px; height: 16px; }
+
+    /* ── Quiz Screen ── */
+    #quiz-screen { align-items: center; justify-content: flex-start; }
+
+    .quiz-wrapper {
+      width: 100%;
+      max-width: 660px;
+      padding: 4rem 1.5rem 6rem;
+      margin: 0 auto;
+    }
+
+    .quiz-back {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: .85rem;
+      font-weight: 500;
+      padding: 0;
+      margin-bottom: 2.5rem;
+      transition: color .15s;
+    }
+
+    .quiz-back:hover { color: var(--navy); }
+    .quiz-back svg   { width: 15px; height: 15px; }
+
+    .quiz-loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.25rem;
+      padding: 4rem 0;
+      text-align: center;
+    }
+
+    .quiz-loading p { font-size: .9rem; color: var(--muted); }
+
+    .quiz-content { display: none; }
+    .quiz-content.visible { display: block; }
+
+    .quiz-heading {
+      margin-bottom: 2rem;
+    }
+
+    .quiz-heading h2 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: -.3px;
+      margin-bottom: .3rem;
+    }
+
+    .quiz-heading p {
+      font-size: .875rem;
+      color: var(--muted);
+    }
+
+    /* Individual question */
+    .quiz-question {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .q-text {
+      font-size: .925rem;
+      font-weight: 600;
+      color: var(--navy);
+      margin-bottom: 1rem;
+      line-height: 1.5;
+    }
+
+    .q-number {
+      font-size: .7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--blue);
+      margin-bottom: .4rem;
+    }
+
+    .q-options {
+      display: flex;
+      flex-direction: column;
+      gap: .45rem;
+    }
+
+    .q-option {
+      width: 100%;
+      text-align: left;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: .65rem .9rem;
+      font-size: .855rem;
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+      line-height: 1.45;
+    }
+
+    .q-option:hover:not(:disabled) {
+      border-color: var(--blue);
+      background: #f0eee8;
+    }
+
+    .q-option:disabled { cursor: default; }
+
+    .q-option.opt-correct {
+      background: #edf7ed;
+      border-color: #6aad6a;
+      color: #2a5e2a;
+      font-weight: 600;
+    }
+
+    .q-option.opt-wrong {
+      background: #fef1ee;
+      border-color: #d87a5a;
+      color: #7a2e10;
+    }
+
+    .q-option.opt-dimmed {
+      opacity: .45;
+    }
+
+    /* Results */
+    .quiz-results {
+      display: none;
+      margin-top: 2rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .quiz-results.visible { display: block; }
+
+    .score-ring {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 88px;
+      height: 88px;
+      border: 3px solid var(--border);
+      border-radius: 50%;
+      margin-bottom: 1.25rem;
+    }
+
+    .score-ring .score-num {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--navy);
+      line-height: 1;
+    }
+
+    .score-ring .score-denom {
+      font-size: .72rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .score-label {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: .4rem;
+    }
+
+    .score-message {
+      font-size: .875rem;
+      color: var(--muted);
+      max-width: 360px;
+      margin: 0 auto 1.5rem;
+      line-height: 1.6;
+    }
+
+    .btn-retry {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      background: transparent;
+      color: var(--blue);
+      font-size: .875rem;
+      font-weight: 600;
+      padding: .6rem 1.4rem;
+      border: 1.5px solid var(--blue);
+      border-radius: 7px;
+      cursor: pointer;
+      transition: background .15s, color .15s;
+      margin-right: .5rem;
+    }
+
+    .btn-retry:hover { background: var(--blue); color: #fff; }
+
+    .btn-back-summary {
+      display: inline-flex;
+      align-items: center;
+      gap: .45rem;
+      background: var(--navy);
+      color: #fff;
+      font-size: .875rem;
+      font-weight: 600;
+      padding: .6rem 1.4rem;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      transition: background .15s;
+    }
+
+    .btn-back-summary:hover { background: #243547; }
+
+    /* ── Comparison Screen ── */
+    #compare-screen { align-items: center; justify-content: flex-start; }
+
+    .compare-wrapper {
+      width: 100%;
+      max-width: 600px;
+      padding: 4rem 1.5rem 6rem;
+      margin: 0 auto;
+    }
+
+    .compare-heading {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .compare-heading h2 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: -.3px;
+      margin-bottom: .4rem;
+    }
+
+    .compare-heading p {
+      font-size: .9rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .compare-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .compare-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem 1.25rem;
+      text-align: center;
+    }
+
+    .compare-card-label {
+      font-size: .7rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: .75rem;
+    }
+
+    .compare-score-num {
+      font-size: 2.75rem;
+      font-weight: 800;
+      color: var(--navy);
+      line-height: 1;
+    }
+
+    .compare-score-denom {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .compare-improvement {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.75rem 1.5rem;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .compare-delta {
+      font-size: 1.5rem;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: .5rem;
+    }
+
+    .compare-delta.positive { color: var(--blue); }
+    .compare-delta.neutral  { color: var(--muted); }
+    .compare-delta.negative { color: #c95f30; }
+
+    .compare-msg {
+      font-size: .875rem;
+      color: var(--muted);
+      line-height: 1.65;
+      max-width: 380px;
+      margin: 0 auto;
+    }
+
+    .compare-actions {
+      display: flex;
+      justify-content: center;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 1.25rem;
+      font-size: .78rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav>
+    <a class="nav-brand" href="#" onclick="showScreen('home'); return false;">
+      <div class="logo-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+             stroke-width="2" stroke="currentColor" width="16" height="16">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0
+                   2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424
+                   0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0
+                   .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0
+                   0-.1-.664m-5.8 0A2.251 2.251 0 0 0 13.5 2.25H15c1.012 0
+                   1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095
+                   4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621
+                   0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125
+                   1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504
+                   -1.125-1.125-1.125H8.25Z"/>
+        </svg>
+      </div>
+      <span class="brand-name">Clear<span>Sign</span></span>
+    </a>
+
+    <div class="lang-toggle" id="langToggle">
+      <button class="lang-btn active" id="btnEn" onclick="setLanguage('en')">EN</button>
+      <button class="lang-btn"        id="btnEs" onclick="setLanguage('es')">ES</button>
+    </div>
+
+  </nav>
+
+  <!-- Home Screen -->
+  <main id="home-screen" class="screen active">
+    <section class="hero">
+      <h1 data-i18n="home-h1">Understand What You Sign</h1>
+      <p data-i18n="home-p">
+        ClearSign reads your legal contracts and translates dense legalese into plain,
+        everyday language you can actually understand.
+        Know exactly what you're agreeing to — before you put your name on it.
+      </p>
+      <button class="btn-primary" onclick="showScreen('upload')">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+             stroke-width="2.2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0
+                   21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
+        </svg>
+        <span data-i18n="home-upload-btn">Upload a Contract</span>
+      </button>
+    </section>
+
+    <div class="divider"></div>
+
+    <section class="features">
+      <div class="card">
+        <div class="card-label" data-i18n="home-card1-label">Summary</div>
+        <h3 data-i18n="home-card1-h3">Plain-Language Breakdown</h3>
+        <p data-i18n="home-card1-p">Every clause explained in clear, jargon-free terms so nothing catches you off guard.</p>
+      </div>
+      <div class="card">
+        <div class="card-label" data-i18n="home-card2-label">Flags</div>
+        <h3 data-i18n="home-card2-h3">Risk Highlights</h3>
+        <p data-i18n="home-card2-p">Unusual terms, auto-renewals, and hidden fees are surfaced before you sign.</p>
+      </div>
+      <div class="card">
+        <div class="card-label" data-i18n="home-card3-label">Speed</div>
+        <h3 data-i18n="home-card3-h3">Instant Results</h3>
+        <p data-i18n="home-card3-p">Upload a PDF or paste text and get your simplified summary in seconds.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Upload Screen -->
+  <main id="upload-screen" class="screen">
+    <div class="upload-wrapper">
+
+      <button class="upload-back" onclick="showScreen('home')">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+             stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
+        </svg>
+        <span data-i18n="nav-back">Back</span>
+      </button>
+
+      <div class="upload-heading">
+        <h2 data-i18n="upload-h2">Upload Your Contract</h2>
+        <p data-i18n="upload-p">Drag and drop your file below, or click to browse. We'll handle the rest.</p>
+      </div>
+
+      <div id="errorBanner" class="error-banner"></div>
+
+      <div class="drop-zone" id="dropZone">
+        <input type="file" accept=".pdf,image/*" id="fileInput" />
+
+        <div class="drop-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+               stroke-width="1.8" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5
+                     A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0
+                     0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625
+                     c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125
+                     1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0
+                     0-9-9Z"/>
+          </svg>
+        </div>
+
+        <h3 data-i18n="upload-drop-h3">Drag and drop your file here</h3>
+        <p data-i18n="upload-or">or</p>
+
+        <button class="btn-browse"
+                onclick="document.getElementById('fileInput').click(); event.stopPropagation();">
+          <span data-i18n="upload-browse">Browse Files</span>
+        </button>
+      </div>
+
+      <div class="accepted-types">
+        <span class="label" data-i18n="upload-formats-label">Accepted formats:</span>
+        <span class="type-tag">PDF</span>
+        <span class="type-tag">JPG</span>
+        <span class="type-tag">PNG</span>
+        <span class="type-tag">WEBP</span>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Loading Screen -->
+  <main id="loading-screen" class="screen">
+    <div class="loading-body">
+      <div class="spinner"></div>
+      <p class="loading-label" id="loadingLabel">Reading your contract…</p>
+      <p class="loading-sub" data-i18n="loading-sub">This usually takes 15–30 seconds.</p>
+    </div>
+  </main>
+
+  <!-- Pre-Quiz Screen -->
+  <main id="prequiz-screen" class="screen">
+    <div class="quiz-wrapper">
+
+      <button class="quiz-back" onclick="showScreen('upload')">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+             stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
+        </svg>
+        <span data-i18n="nav-back">Back</span>
+      </button>
+
+      <!-- Inline loading state -->
+      <div id="prequizLoading" class="quiz-loading">
+        <div class="spinner"></div>
+        <p data-i18n="prequiz-loading-p">Generating your pre-reading questions…</p>
+      </div>
+
+      <!-- Pre-quiz content (hidden until loaded) -->
+      <div id="prequizContent" class="quiz-content">
+        <div class="quiz-heading">
+          <h2 data-i18n="prequiz-h2">Test Yourself First</h2>
+          <p data-i18n="prequiz-p">Answer 5 questions based on the original legal language — then we'll show you the plain-English summary.</p>
+        </div>
+
+        <div class="prequiz-intro" data-i18n-html="prequiz-intro">
+          <strong>Why?</strong> This shows you exactly how hard the contract is to understand before simplification.
+          Your score reveals what you missed — and the summary will explain it all.
+        </div>
+
+        <div id="prequizQuestions"></div>
+
+        <div id="prequizResults" class="quiz-results">
+          <div class="score-ring">
+            <span class="score-num" id="prequizScoreNum">0</span>
+            <span class="score-denom" id="prequizScoreDenom">/ 5</span>
+          </div>
+          <p class="score-label" id="prequizScoreLabel"></p>
+          <p class="score-message" id="prequizScoreMessage"></p>
+          <button class="btn-see-summary" onclick="loadSummary()">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                 stroke-width="2" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/>
+            </svg>
+            <span data-i18n="prequiz-see-summary">See the Simplified Summary</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Summary Screen -->
+  <main id="summary-screen" class="screen">
+    <div class="summary-wrapper">
+
+      <button class="summary-back" onclick="showScreen('upload')">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+             stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
+        </svg>
+        <span data-i18n="nav-back">Back</span>
+      </button>
+
+      <!-- File chip + title populated by JS -->
+      <div class="summary-meta">
+        <span class="file-chip">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+               stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125
+                     1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25
+                     m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504
+                     1.125 1.125 1.125h12.75c.621 0 1.125-.504
+                     1.125-1.125V11.25a9 9 0 0 0-9-9Z"/>
+          </svg>
+          <span id="sumFilename"></span>
+        </span>
+      </div>
+
+      <h1 class="summary-title" id="sumTitle"></h1>
+      <p class="summary-subtitle" id="sumParties"></p>
+
+      <!-- Obligations -->
+      <div class="summary-section">
+        <div class="section-header">
+          <span class="section-tag" data-i18n="sum-tag-obligations">Obligations</span>
+          <span class="section-title" data-i18n="sum-title-obligations">What each party must do</span>
+        </div>
+        <ul class="summary-list" id="sumObligations"></ul>
+      </div>
+
+      <div class="section-divider"></div>
+
+      <!-- Deadlines -->
+      <div class="summary-section">
+        <div class="section-header">
+          <span class="section-tag" data-i18n="sum-tag-deadlines">Deadlines</span>
+          <span class="section-title" data-i18n="sum-title-deadlines">Key dates and timeframes</span>
+        </div>
+        <ul class="summary-list" id="sumDeadlines"></ul>
+      </div>
+
+      <div class="section-divider"></div>
+
+      <!-- Rights -->
+      <div class="summary-section">
+        <div class="section-header">
+          <span class="section-tag" data-i18n="sum-tag-rights">Rights</span>
+          <span class="section-title" data-i18n="sum-title-rights">Ownership and permitted use</span>
+        </div>
+        <ul class="summary-list" id="sumRights"></ul>
+      </div>
+
+      <div class="section-divider"></div>
+
+      <!-- Risk Flags -->
+      <div class="risk-section">
+        <div class="risk-header">
+          <span class="risk-tag" data-i18n="sum-risk-tag">Risk Flags</span>
+          <span class="risk-title" data-i18n="sum-risk-title">Clauses to review carefully</span>
+        </div>
+        <ul class="risk-list" id="sumRisks"></ul>
+      </div>
+
+      <!-- Quiz CTA -->
+      <div class="quiz-cta">
+        <p class="quiz-cta-label" data-i18n="sum-cta-label">Knowledge Check</p>
+        <h3 data-i18n="sum-cta-h3">Test Your Understanding</h3>
+        <p data-i18n="sum-cta-p">Answer 5 quick questions about this contract to see how well you understood it.</p>
+        <button class="btn-quiz" onclick="startQuiz()">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+               stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025
+                     1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999
+                     -1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9
+                     5.25h.008v.008H12v-.008Z"/>
+          </svg>
+          <span data-i18n="sum-cta-btn">Take the Quiz</span>
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Quiz Screen -->
+  <main id="quiz-screen" class="screen">
+    <div class="quiz-wrapper">
+
+      <button class="quiz-back" onclick="showScreen('summary')">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+             stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/>
+        </svg>
+        <span data-i18n="quiz-back">Back to Summary</span>
+      </button>
+
+      <!-- Inline loading state -->
+      <div id="quizLoading" class="quiz-loading">
+        <div class="spinner"></div>
+        <p data-i18n="quiz-loading-p">Generating your questions…</p>
+      </div>
+
+      <!-- Quiz content (hidden until loaded) -->
+      <div id="quizContent" class="quiz-content">
+        <div class="quiz-heading">
+          <h2 data-i18n="quiz-h2">Contract Quiz</h2>
+          <p data-i18n="quiz-p">Answer all 5 questions — your score will appear at the end.</p>
+        </div>
+
+        <div id="quizQuestions"></div>
+
+        <div id="quizResults" class="quiz-results">
+          <div class="score-ring">
+            <span class="score-num" id="scoreNum">0</span>
+            <span class="score-denom" id="scoreDenom">/ 5</span>
+          </div>
+          <p class="score-label" id="scoreLabel"></p>
+          <p class="score-message" id="scoreMessage"></p>
+          <button class="btn-retry" onclick="startQuiz()" data-i18n="quiz-retry">Try Again</button>
+          <button class="btn-back-summary" onclick="showScreen('summary')" data-i18n="quiz-back-summary">Back to Summary</button>
+          <button class="btn-primary" style="margin-top:.75rem;width:100%;justify-content:center;" onclick="showComparison()"><span data-i18n="quiz-progress">See Your Progress</span></button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Comparison Screen -->
+  <main id="compare-screen" class="screen">
+    <div class="compare-wrapper">
+
+      <div class="compare-heading">
+        <h2 data-i18n="compare-h2">Your Progress</h2>
+        <p data-i18n="compare-p">Here's how your understanding changed after reading the simplified summary.</p>
+      </div>
+
+      <div class="compare-cards">
+        <div class="compare-card">
+          <p class="compare-card-label" data-i18n="compare-pre-label">Before the summary</p>
+          <p class="compare-score-num" id="comparePreNum">—</p>
+          <p class="compare-score-denom" data-i18n="compare-denom">out of 5</p>
+        </div>
+        <div class="compare-card">
+          <p class="compare-card-label" data-i18n="compare-post-label">After the summary</p>
+          <p class="compare-score-num" id="comparePostNum">—</p>
+          <p class="compare-score-denom" data-i18n="compare-denom">out of 5</p>
+        </div>
+      </div>
+
+      <div class="compare-improvement">
+        <p class="compare-delta" id="compareDelta"></p>
+        <p class="compare-msg" id="compareMsg"></p>
+      </div>
+
+      <div class="compare-actions">
+        <button class="btn-primary" onclick="showScreen('home')">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+               stroke-width="2.2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0
+                     21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5"/>
+          </svg>
+          <span data-i18n="compare-upload-btn">Upload Another Contract</span>
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    &copy; 2026 ClearSign &mdash; <span data-i18n="footer-disclaimer">Not a substitute for legal advice.</span>
+  </footer>
+
+  <script>
+    // ── Config ──────────────────────────────────────────────────────────────
+    const API_KEY = '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';
+    const MODEL   = 'openrouter/free';
+
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+    // ── Language ─────────────────────────────────────────────────────────────
+    let language = 'en';
+
+    const TRANSLATIONS = {
+      en: {
+        'page-title':             'ClearSign — Legal Contract Simplifier',
+        'home-h1':                'Understand What You Sign',
+        'home-p':                 'ClearSign reads your legal contracts and translates dense legalese into plain, everyday language you can actually understand. Know exactly what you\'re agreeing to — before you put your name on it.',
+        'home-upload-btn':        'Upload a Contract',
+        'home-card1-label':       'Summary',
+        'home-card1-h3':          'Plain-Language Breakdown',
+        'home-card1-p':           'Every clause explained in clear, jargon-free terms so nothing catches you off guard.',
+        'home-card2-label':       'Flags',
+        'home-card2-h3':          'Risk Highlights',
+        'home-card2-p':           'Unusual terms, auto-renewals, and hidden fees are surfaced before you sign.',
+        'home-card3-label':       'Speed',
+        'home-card3-h3':          'Instant Results',
+        'home-card3-p':           'Upload a PDF or paste text and get your simplified summary in seconds.',
+        'nav-back':               'Back',
+        'upload-h2':              'Upload Your Contract',
+        'upload-p':               'Drag and drop your file below, or click to browse. We\'ll handle the rest.',
+        'upload-drop-h3':         'Drag and drop your file here',
+        'upload-or':              'or',
+        'upload-browse':          'Browse Files',
+        'upload-formats-label':   'Accepted formats:',
+        'loading-sub':            'This usually takes 15–30 seconds.',
+        'loading-reading':        'Reading your contract…',
+        'loading-quiz':           'Generating your quiz questions…',
+        'loading-simplifying':    'Simplifying your contract…',
+        'prequiz-loading-p':      'Generating your pre-reading questions…',
+        'prequiz-h2':             'Test Yourself First',
+        'prequiz-p':              'Answer 5 questions based on the original legal language — then we\'ll show you the plain-English summary.',
+        'prequiz-intro':          '<strong>Why?</strong> This shows you exactly how hard the contract is to understand before simplification. Your score reveals what you missed — and the summary will explain it all.',
+        'prequiz-see-summary':    'See the Simplified Summary',
+        'prequiz-labels':         ['Legal Language is Tough','Tricky Stuff','Decent Attempt','Good Effort','Strong Read','Legal Eagle!'],
+        'prequiz-messages':       [
+          'That\'s totally normal — legal language is designed to be hard. The summary will clear everything up.',
+          'Legal jargon trips up most people. See how the summary explains it all.',
+          'Not bad for raw legalese! The summary will fill in the gaps.',
+          'Good instincts with that dense language. See how the simplified version compares.',
+          'Almost aced the original — now see how clear it can be.',
+          'Perfect score on the raw legal text — impressive! See the plain-English version.'
+        ],
+        'sum-tag-obligations':    'Obligations',
+        'sum-title-obligations':  'What each party must do',
+        'sum-tag-deadlines':      'Deadlines',
+        'sum-title-deadlines':    'Key dates and timeframes',
+        'sum-tag-rights':         'Rights',
+        'sum-title-rights':       'Ownership and permitted use',
+        'sum-risk-tag':           'Risk Flags',
+        'sum-risk-title':         'Clauses to review carefully',
+        'sum-cta-label':          'Knowledge Check',
+        'sum-cta-h3':             'Test Your Understanding',
+        'sum-cta-p':              'Answer 5 quick questions about this contract to see how well you understood it.',
+        'sum-cta-btn':            'Take the Quiz',
+        'quiz-back':              'Back to Summary',
+        'quiz-loading-p':         'Generating your questions…',
+        'quiz-h2':                'Contract Quiz',
+        'quiz-p':                 'Answer all 5 questions — your score will appear at the end.',
+        'quiz-retry':             'Try Again',
+        'quiz-back-summary':      'Back to Summary',
+        'quiz-progress':          'See Your Progress',
+        'quiz-question-of':       'Question {n} of {total}',
+        'quiz-labels':            ['Keep Trying','Getting There','Decent Effort','Good Job','Great Work','Excellent!'],
+        'quiz-messages':          [
+          'Keep going — re-read the summary and try again!',
+          'A solid start. One more read-through might help.',
+          'Not bad! You caught some key points.',
+          'Good grasp of the contract. Well done.',
+          'Almost perfect! You really read it carefully.',
+          'Perfect score! You understood every detail.'
+        ],
+        'compare-h2':             'Your Progress',
+        'compare-p':              'Here\'s how your understanding changed after reading the simplified summary.',
+        'compare-pre-label':      'Before the summary',
+        'compare-post-label':     'After the summary',
+        'compare-denom':          'out of 5',
+        'compare-upload-btn':     'Upload Another Contract',
+        'compare-point':          'point',
+        'compare-points':         'points',
+        'compare-same-score':     'Same score',
+        'compare-improved':       [
+          '',
+          'One more point after reading the summary — every bit of clarity counts.',
+          'Two more correct answers after reading it. The summary clearly helped.',
+          'A strong jump! The plain-English version unlocked key parts you missed.',
+          'Remarkable improvement. The summary made almost everything click.',
+          'Perfect turnaround — the summary explained everything you needed to know.'
+        ],
+        'compare-improved-generic': 'You improved by {diff} points after reading the summary.',
+        'compare-neutral-5':      'Perfect both times — you clearly have an exceptional grasp of legal language.',
+        'compare-neutral-other':  'You scored the same before and after. Try re-reading the summary to catch what you missed.',
+        'compare-negative':       'The post-summary questions were trickier. Re-read the summary and give the quiz another go.',
+        'footer-disclaimer':      'Not a substitute for legal advice.'
+      },
+      es: {
+        'page-title':             'ClearSign — Simplificador de contratos legales',
+        'home-h1':                'Entiende lo que firmas',
+        'home-p':                 'ClearSign lee tus contratos legales y convierte el lenguaje jurídico complejo en palabras claras y sencillas que puedes entender. Sabe exactamente a qué te comprometes — antes de firmar.',
+        'home-upload-btn':        'Subir un contrato',
+        'home-card1-label':       'Resumen',
+        'home-card1-h3':          'Explicación en lenguaje simple',
+        'home-card1-p':           'Cada cláusula explicada en términos claros y sin tecnicismos para que nada te tome por sorpresa.',
+        'home-card2-label':       'Alertas',
+        'home-card2-h3':          'Puntos de riesgo',
+        'home-card2-p':           'Términos inusuales, renovaciones automáticas y cargos ocultos se muestran antes de que firmes.',
+        'home-card3-label':       'Velocidad',
+        'home-card3-h3':          'Resultados instantáneos',
+        'home-card3-p':           'Sube un PDF y obtén tu resumen simplificado en segundos.',
+        'nav-back':               'Volver',
+        'upload-h2':              'Sube tu contrato',
+        'upload-p':               'Arrastra y suelta tu archivo aquí, o haz clic para buscar. Nosotros hacemos el resto.',
+        'upload-drop-h3':         'Arrastra y suelta tu archivo aquí',
+        'upload-or':              'o',
+        'upload-browse':          'Buscar archivos',
+        'upload-formats-label':   'Formatos aceptados:',
+        'loading-sub':            'Esto suele tardar entre 15 y 30 segundos.',
+        'loading-reading':        'Leyendo tu contrato…',
+        'loading-quiz':           'Generando tus preguntas…',
+        'loading-simplifying':    'Simplificando tu contrato…',
+        'prequiz-loading-p':      'Generando tus preguntas previas…',
+        'prequiz-h2':             'Ponte a prueba primero',
+        'prequiz-p':              'Responde 5 preguntas basadas en el lenguaje legal original — luego te mostraremos el resumen en lenguaje sencillo.',
+        'prequiz-intro':          '<strong>¿Por qué?</strong> Esto te muestra qué tan difícil es entender el contrato antes de simplificarlo. Tu puntuación revela lo que te perdiste — y el resumen lo explicará todo.',
+        'prequiz-see-summary':    'Ver el resumen simplificado',
+        'prequiz-labels':         ['El lenguaje legal es difícil','Complicado','Buen intento','Buen esfuerzo','Buena lectura','¡Experto legal!'],
+        'prequiz-messages':       [
+          'Es completamente normal — el lenguaje legal está diseñado para ser difícil. El resumen lo aclarará todo.',
+          'Los términos legales confunden a la mayoría. Mira cómo el resumen lo explica todo.',
+          '¡No está mal para lenguaje legal puro! El resumen llenará los vacíos.',
+          'Buen instinto con ese lenguaje denso. Mira cómo se compara la versión simplificada.',
+          'Casi perfectas con el texto original — ahora ve qué tan claro puede ser.',
+          '¡Puntaje perfecto en el texto legal original — impresionante! Mira la versión en lenguaje sencillo.'
+        ],
+        'sum-tag-obligations':    'Obligaciones',
+        'sum-title-obligations':  'Lo que cada parte debe hacer',
+        'sum-tag-deadlines':      'Plazos',
+        'sum-title-deadlines':    'Fechas y plazos clave',
+        'sum-tag-rights':         'Derechos',
+        'sum-title-rights':       'Propiedad y uso permitido',
+        'sum-risk-tag':           'Alertas de riesgo',
+        'sum-risk-title':         'Cláusulas que debes revisar con cuidado',
+        'sum-cta-label':          'Comprueba tu comprensión',
+        'sum-cta-h3':             'Pon a prueba tu comprensión',
+        'sum-cta-p':              'Responde 5 preguntas rápidas sobre este contrato para ver qué tan bien lo entendiste.',
+        'sum-cta-btn':            'Hacer el cuestionario',
+        'quiz-back':              'Volver al resumen',
+        'quiz-loading-p':         'Generando tus preguntas…',
+        'quiz-h2':                'Cuestionario del contrato',
+        'quiz-p':                 'Responde las 5 preguntas — tu puntuación aparecerá al final.',
+        'quiz-retry':             'Intentar de nuevo',
+        'quiz-back-summary':      'Volver al resumen',
+        'quiz-progress':          'Ver tu progreso',
+        'quiz-question-of':       'Pregunta {n} de {total}',
+        'quiz-labels':            ['Sigue intentando','Vas mejorando','Buen esfuerzo','Buen trabajo','Excelente trabajo','¡Excelente!'],
+        'quiz-messages':          [
+          '¡Sigue adelante! Vuelve a leer el resumen e inténtalo de nuevo.',
+          'Un buen comienzo. Quizás una lectura más te ayude.',
+          '¡No está mal! Captaste algunos puntos clave.',
+          'Buen dominio del contrato. ¡Bien hecho!',
+          '¡Casi perfecto! Realmente lo leíste con atención.',
+          '¡Puntaje perfecto! Entendiste cada detalle.'
+        ],
+        'compare-h2':             'Tu progreso',
+        'compare-p':              'Así cambió tu comprensión después de leer el resumen simplificado.',
+        'compare-pre-label':      'Antes del resumen',
+        'compare-post-label':     'Después del resumen',
+        'compare-denom':          'de 5',
+        'compare-upload-btn':     'Subir otro contrato',
+        'compare-point':          'punto',
+        'compare-points':         'puntos',
+        'compare-same-score':     'Mismo puntaje',
+        'compare-improved':       [
+          '',
+          'Un punto más después de leer el resumen — cada aclaración cuenta.',
+          'Dos respuestas correctas más después de leerlo. El resumen claramente ayudó.',
+          '¡Un gran salto! La versión simplificada aclaró partes clave que te habías perdido.',
+          'Mejora notable. El resumen hizo que casi todo encajara.',
+          '¡Cambio perfecto! El resumen explicó todo lo que necesitabas saber.'
+        ],
+        'compare-improved-generic': 'Mejoraste {diff} puntos después de leer el resumen.',
+        'compare-neutral-5':      'Perfecto ambas veces — claramente tienes un dominio excepcional del lenguaje legal.',
+        'compare-neutral-other':  'Obtuviste el mismo puntaje antes y después. Intenta releer el resumen para ver lo que te perdiste.',
+        'compare-negative':       'Las preguntas posteriores al resumen fueron más difíciles. Vuelve a leer el resumen e intenta el cuestionario de nuevo.',
+        'footer-disclaimer':      'No sustituye el asesoramiento legal profesional.'
+      }
+    };
+
+    function t(key) {
+      return (TRANSLATIONS[language] ?? TRANSLATIONS.en)[key] ?? TRANSLATIONS.en[key] ?? key;
+    }
+
+    function applyTranslations() {
+      document.title = t('page-title');
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        el.textContent = t(el.dataset.i18n);
+      });
+      document.querySelectorAll('[data-i18n-html]').forEach(el => {
+        el.innerHTML = t(el.dataset.i18nHtml);
+      });
+    }
+
+    function setLanguage(lang) {
+      language = lang;
+      document.getElementById('btnEn').classList.toggle('active', lang === 'en');
+      document.getElementById('btnEs').classList.toggle('active', lang === 'es');
+      applyTranslations();
+    }
+
+    // ── Screen routing ───────────────────────────────────────────────────────
+    function showScreen(name) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(name + '-screen').classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ── Drop zone drag feedback ──────────────────────────────────────────────
+    const dropZone  = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (file) handleFile(file);
+    });
+
+    // ── File handling entry point ────────────────────────────────────────────
+    async function handleFile(file) {
+      hideError();
+      showScreen('loading');
+
+      try {
+        setLoadingLabel(t('loading-reading'));
+        let content;
+
+        if (file.type === 'application/pdf') {
+          content = await extractPdfText(file);
+        } else if (file.type.startsWith('image/')) {
+          content = await encodeImageBase64(file);
+        } else {
+          throw new Error('Unsupported file type. Please upload a PDF or image.');
+        }
+
+        currentFile    = file;
+        currentContent = content;
+
+        setLoadingLabel(t('loading-quiz'));
+        const prequizQuestions = await callOpenRouterForPreQuiz(file, content);
+
+        showPreQuiz(prequizQuestions);
+      } catch (err) {
+        showScreen('upload');
+        showError(err.message || 'Something went wrong. Please try again.');
+        // Reset file input so the same file can be re-selected
+        fileInput.value = '';
+      }
+    }
+
+    // ── PDF text extraction ──────────────────────────────────────────────────
+    async function extractPdfText(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page    = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items.map(item => item.str).join(' ');
+        fullText += pageText + '\n';
+      }
+
+      const trimmed = fullText.trim();
+      if (!trimmed) throw new Error('No readable text found in this PDF. Try uploading an image instead.');
+      // Limit to ~12 000 chars to stay within free-tier context limits
+      return trimmed.slice(0, 12000);
+    }
+
+    // ── Image → base64 ───────────────────────────────────────────────────────
+    function encodeImageBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result); // data URL
+        reader.onerror = () => reject(new Error('Failed to read image file.'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // ── OpenRouter API call ───────────────────────────────────────────────────
+    async function callOpenRouter(file, content) {
+      const langInstruction = language === 'es'
+        ? 'IMPORTANT: Write ALL output — every field value, every string — in Spanish. Do not use English anywhere in the JSON values.'
+        : 'Write all output in English.';
+
+      const systemPrompt = `You are a legal contract analyser. Read the contract and respond with ONLY a valid JSON object — no markdown, no explanation, nothing else.
+
+${langInstruction}
+
+Return exactly this structure:
+{
+  "title": "Name of the contract",
+  "parties": "Who is involved and the effective date (one short sentence)",
+  "obligations": ["Plain-language obligation 1", "..."],
+  "deadlines": ["Plain-language deadline 1", "..."],
+  "rights": ["Plain-language right 1", "..."],
+  "risks": [
+    { "title": "Short risk title", "description": "Plain-language explanation of why this is risky" }
+  ]
+}
+
+Rules:
+- Write in plain language any non-lawyer can understand.
+- Each array must have 3–5 items.
+- For risks, flag clauses that are one-sided, unusual, or could harm the signer.
+- Be specific — reference actual terms from the contract.`;
+
+      let messages;
+
+      if (file.type.startsWith('image/')) {
+        // Vision message — works with multimodal models
+        messages = [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: [
+              { type: 'text',      text: 'Here is the contract image. Analyse it and return the JSON.' },
+              { type: 'image_url', image_url: { url: content } }
+            ]
+          }
+        ];
+      } else {
+        // Plain text message for PDFs
+        messages = [
+          { role: 'system', content: systemPrompt },
+          { role: 'user',   content: `Here is the contract text:\n\n${content}` }
+        ];
+      }
+
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization':  `Bearer ${API_KEY}`,
+          'Content-Type':   'application/json',
+          'HTTP-Referer':   window.location.href,
+          'X-Title':        'ClearSign'
+        },
+        body: JSON.stringify({ model: MODEL, messages })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error?.message || `API error (${res.status}). Please try again.`);
+      }
+
+      const data = await res.json();
+      const raw  = data?.choices?.[0]?.message?.content ?? '';
+
+      return parseJSON(raw);
+    }
+
+    // ── JSON parsing (strips markdown code fences if present) ────────────────
+    function parseJSON(raw) {
+      // Strip ```json ... ``` or ``` ... ``` wrappers
+      const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      try {
+        return JSON.parse(cleaned);
+      } catch {
+        // Try extracting the first {...} block as a fallback
+        const match = cleaned.match(/\{[\s\S]*\}/);
+        if (match) return JSON.parse(match[0]);
+        throw new Error('The AI returned an unexpected response. Please try again.');
+      }
+    }
+
+    // ── Quiz state ────────────────────────────────────────────────────────────
+    let currentSummaryData = null;
+    let quizAnswered       = 0;
+    let quizScore          = 0;
+
+    // ── Pre-quiz state ────────────────────────────────────────────────────────
+    let prequizAnswered = 0;
+    let prequizScore    = 0;
+    let currentFile     = null;
+    let currentContent  = null;
+
+    // ── Populate summary screen ───────────────────────────────────────────────
+    function populateSummary(filename, data) {
+      currentSummaryData = data;
+
+      document.getElementById('sumFilename').textContent   = filename;
+      document.getElementById('sumTitle').textContent      = data.title    || 'Contract Summary';
+      document.getElementById('sumParties').textContent    = data.parties  || '';
+
+      fillList('sumObligations', data.obligations || []);
+      fillList('sumDeadlines',   data.deadlines   || []);
+      fillList('sumRights',      data.rights      || []);
+      fillRisks('sumRisks',      data.risks       || []);
+    }
+
+    function fillList(id, items) {
+      const ul = document.getElementById(id);
+      ul.innerHTML = items.map(text => `<li>${escHtml(text)}</li>`).join('');
+    }
+
+    function fillRisks(id, risks) {
+      const ul = document.getElementById(id);
+      ul.innerHTML = risks.map(r => `
+        <li class="risk-item">
+          <span class="risk-item-title">${escHtml(r.title || '')}</span>
+          <span class="risk-item-body">${escHtml(r.description || '')}</span>
+        </li>`).join('');
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Pre-Quiz ──────────────────────────────────────────────────────────────
+    async function callOpenRouterForPreQuiz(file, content) {
+      const langInstruction = language === 'es'
+        ? 'IMPORTANT: Write ALL questions and ALL answer options in Spanish. Do not use English anywhere.'
+        : 'Write all questions and answer options in English.';
+
+      const systemPrompt = `You are a quiz generator helping everyday people — like renters, employees, or small business owners — understand what a contract actually says. Based on the contract text provided, create exactly 5 multiple-choice questions. Respond with ONLY a valid JSON array — no markdown, no explanation, nothing else.
+
+${langInstruction}
+
+Return exactly this structure:
+[
+  {
+    "question": "Question text here?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct": 0
+  }
+]
+
+Rules:
+- "correct" is the zero-based index of the correct answer in the options array.
+- Each question must have exactly 4 options.
+- Write every question in plain, everyday English — no legal jargon, no Latin phrases, no complex terminology. A 10th-grader should be able to read and understand the question.
+- Ask about the practical meaning or real-world impact of what the contract says: what someone must do, what they're not allowed to do, what happens if something goes wrong, how long something lasts, who pays for what, etc.
+- Use simple question stems like "What must [party] do if…", "How long does…", "Who pays for…", "What happens if…", "Which of these is NOT allowed under this contract?".
+- All 4 options must be realistic and specific — no option should be obviously silly, vague, or a clear throwaway. A reader who hasn't read the contract should find all 4 options believable.
+- The correct answer must come directly from the contract text — not something that could be guessed from common sense alone.
+- Never use "Yes" or "No" as an answer option. Never phrase questions as true/false.
+- Answer options MUST match the type of question: if the question asks "how much", all options must be dollar amounts or quantities; if it asks "how long", all options must be time durations; if it asks "who", all options must be people or parties; if it asks "what happens", all options must describe outcomes or consequences. Never mix answer types (e.g., do not pair dollar amounts with yes/no/never responses).
+- Every wrong answer option must be grounded in the contract — use plausible values that could have appeared in the contract (e.g., nearby amounts, similar time periods, related parties) rather than invented or generic filler. Do not fabricate details that contradict or have no basis in the contract text.
+- Cover different parts of the contract across the 5 questions: e.g., payment, time limits, responsibilities, what's not allowed, and consequences for breaking the agreement.`;
+
+      let messages;
+      if (file.type.startsWith('image/')) {
+        messages = [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: [
+              { type: 'text',      text: 'Here is the contract image. Generate 5 quiz questions based on the original legal language.' },
+              { type: 'image_url', image_url: { url: content } }
+            ]
+          }
+        ];
+      } else {
+        messages = [
+          { role: 'system', content: systemPrompt },
+          { role: 'user',   content: `Here is the contract text:\n\n${content}` }
+        ];
+      }
+
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${API_KEY}`,
+          'Content-Type':  'application/json',
+          'HTTP-Referer':  window.location.href,
+          'X-Title':       'ClearSign'
+        },
+        body: JSON.stringify({ model: MODEL, messages })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error?.message || `API error (${res.status}). Please try again.`);
+      }
+
+      const data = await res.json();
+      const raw  = data?.choices?.[0]?.message?.content ?? '';
+
+      // Strip markdown fences wherever they appear, not just at the edges
+      let cleaned = raw.replace(/```(?:json)?/gi, '').trim();
+      // Isolate from the first [ to the last ] to discard any surrounding prose
+      const arrStart = cleaned.indexOf('[');
+      const arrEnd   = cleaned.lastIndexOf(']');
+      if (arrStart !== -1 && arrEnd > arrStart) {
+        cleaned = cleaned.slice(arrStart, arrEnd + 1);
+      }
+      try {
+        return JSON.parse(cleaned);
+      } catch {
+        // Remove trailing commas before ] or } — a common LLM formatting mistake
+        const fixed = cleaned.replace(/,\s*([\]}])/g, '$1');
+        try {
+          return JSON.parse(fixed);
+        } catch {
+          throw new Error('The AI returned an unexpected response. Please try again.');
+        }
+      }
+    }
+
+    // ── Quiz question validation ───────────────────────────────────────────────
+    function validateQuestions(questions) {
+      const PLACEHOLDER = 'Not stated in the contract';
+      return questions
+        .filter(q => q && typeof q.question === 'string' && Array.isArray(q.options) && q.options.length >= 1)
+        .map(q => {
+          let opts    = q.options.map(String);
+          let correct = Number.isInteger(q.correct) ? q.correct : 0;
+
+          // Pad to exactly 4
+          while (opts.length < 4) opts.push(PLACEHOLDER);
+
+          // Trim to exactly 4, keeping the correct answer
+          if (opts.length > 4) {
+            const correctOpt = opts[correct];
+            const others     = opts.filter((_, i) => i !== correct).slice(0, 3);
+            opts    = [correctOpt, ...others];
+            correct = 0;
+          }
+
+          return { ...q, options: opts, correct };
+        });
+    }
+
+    function showPreQuiz(questions) {
+      // Reset state
+      prequizAnswered = 0;
+      prequizScore    = 0;
+
+      document.getElementById('prequizLoading').style.display = 'none';
+      document.getElementById('prequizContent').classList.add('visible');
+      document.getElementById('prequizResults').classList.remove('visible');
+      document.getElementById('prequizQuestions').innerHTML = '';
+
+      renderPreQuiz(validateQuestions(questions));
+      showScreen('prequiz');
+    }
+
+    function renderPreQuiz(questions) {
+      const container = document.getElementById('prequizQuestions');
+      container.innerHTML = questions.map((q, qIdx) => `
+        <div class="quiz-question" id="prequestion-${qIdx}">
+          <p class="q-number">${t('quiz-question-of').replace('{n}', qIdx + 1).replace('{total}', questions.length)}</p>
+          <p class="q-text">${escHtml(q.question)}</p>
+          <div class="q-options">
+            ${q.options.map((opt, oIdx) => `
+              <button class="q-option"
+                      id="preopt-${qIdx}-${oIdx}"
+                      onclick="selectPreAnswer(${qIdx}, ${oIdx}, ${q.correct}, ${questions.length})">
+                ${escHtml(opt)}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function selectPreAnswer(qIdx, oIdx, correctIdx, totalQuestions) {
+      const optButtons = document.querySelectorAll(`[id^="preopt-${qIdx}-"]`);
+      optButtons.forEach((btn, i) => {
+        btn.disabled = true;
+        if (i === correctIdx) {
+          btn.classList.add('opt-correct');
+        } else if (i === oIdx && oIdx !== correctIdx) {
+          btn.classList.add('opt-wrong');
+        } else {
+          btn.classList.add('opt-dimmed');
+        }
+      });
+
+      if (oIdx === correctIdx) prequizScore++;
+      prequizAnswered++;
+
+      if (prequizAnswered === totalQuestions) {
+        showPreQuizResults(prequizScore, totalQuestions);
+      }
+    }
+
+    function showPreQuizResults(score, total) {
+      const messages = t('prequiz-messages');
+      const labels   = t('prequiz-labels');
+
+      document.getElementById('prequizScoreNum').textContent   = score;
+      document.getElementById('prequizScoreDenom').textContent = `/ ${total}`;
+      document.getElementById('prequizScoreLabel').textContent  = labels[score] || '';
+      document.getElementById('prequizScoreMessage').textContent = messages[score] || '';
+
+      document.getElementById('prequizResults').classList.add('visible');
+      document.getElementById('prequizResults').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // ── Load summary (called after pre-quiz is complete) ──────────────────────
+    async function loadSummary() {
+      showScreen('loading');
+      setLoadingLabel(t('loading-simplifying'));
+      try {
+        const summary = await callOpenRouter(currentFile, currentContent);
+        populateSummary(currentFile.name, summary);
+        showScreen('summary');
+      } catch (err) {
+        showScreen('prequiz');
+        // Surface the error without disrupting the pre-quiz results the user just saw
+        alert('Could not generate the summary. Please try again.\n\n' + (err.message || ''));
+      }
+    }
+
+    // ── Quiz ─────────────────────────────────────────────────────────────────
+    async function startQuiz() {
+      if (!currentSummaryData) return;
+
+      // Reset state
+      quizAnswered = 0;
+      quizScore    = 0;
+
+      // Show quiz screen with loading state
+      document.getElementById('quizLoading').style.display  = 'flex';
+      document.getElementById('quizContent').classList.remove('visible');
+      document.getElementById('quizResults').classList.remove('visible');
+      document.getElementById('quizQuestions').innerHTML = '';
+      showScreen('quiz');
+
+      try {
+        const questions = await callOpenRouterForQuiz(currentSummaryData);
+        renderQuiz(validateQuestions(questions));
+      } catch (err) {
+        // Fall back to summary screen and show error there
+        showScreen('summary');
+        showError(err.message || 'Could not generate quiz questions. Please try again.');
+      }
+    }
+
+    async function callOpenRouterForQuiz(summaryData) {
+      const summaryText = `
+Title: ${summaryData.title || ''}
+Parties: ${summaryData.parties || ''}
+Obligations: ${(summaryData.obligations || []).join(' | ')}
+Deadlines: ${(summaryData.deadlines || []).join(' | ')}
+Rights: ${(summaryData.rights || []).join(' | ')}
+Risks: ${(summaryData.risks || []).map(r => r.title + ': ' + r.description).join(' | ')}
+      `.trim();
+
+      const langInstruction = language === 'es'
+        ? 'IMPORTANT: Write ALL questions and ALL answer options in Spanish. Do not use English anywhere.'
+        : 'Write all questions and answer options in English.';
+
+      const systemPrompt = `You are a quiz generator helping everyday people — like renters, employees, or small business owners — check their understanding of a contract summary. Based on the plain-language summary provided, create exactly 5 multiple-choice questions. Respond with ONLY a valid JSON array — no markdown, no explanation, nothing else.
+
+${langInstruction}
+
+Return exactly this structure:
+[
+  {
+    "question": "Question text here?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct": 0
+  }
+]
+
+Rules:
+- "correct" is the zero-based index of the correct answer in the options array.
+- Each question must have exactly 4 options.
+- Write every question in plain, everyday English — no legal jargon, no Latin phrases, no complex terminology. A 10th-grader should be able to read and understand the question.
+- Ask about practical, real-world details from the summary: what someone must do, what they're not allowed to do, what happens if something goes wrong, how long something lasts, who pays for what, etc.
+- Use simple question stems like "What must [party] do if…", "How long does…", "Who pays for…", "What happens if…", "Which of these is NOT allowed under this contract?".
+- All 4 options must be realistic and specific — no option should be obviously silly, vague, or a clear throwaway. A reader who hasn't read the summary should find all 4 options believable.
+- The correct answer must come directly from the summary — not something that could be guessed from common sense alone.
+- Never use "Yes" or "No" as an answer option. Never phrase questions as true/false.
+- Answer options MUST match the type of question: if the question asks "how much", all options must be dollar amounts or quantities; if it asks "how long", all options must be time durations; if it asks "who", all options must be people or parties; if it asks "what happens", all options must describe outcomes or consequences. Never mix answer types (e.g., do not pair dollar amounts with yes/no/never responses).
+- Every wrong answer option must be grounded in the summary — use plausible values that could have appeared in the contract (e.g., nearby amounts, similar time periods, related parties) rather than invented or generic filler. Do not fabricate details that contradict or have no basis in the summary.
+- Cover different parts of the contract across the 5 questions: e.g., payment, time limits, responsibilities, what's not allowed, and consequences for breaking the agreement.`;
+
+      const messages = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user',   content: `Here is the contract summary:\n\n${summaryText}` }
+      ];
+
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${API_KEY}`,
+          'Content-Type':  'application/json',
+          'HTTP-Referer':  window.location.href,
+          'X-Title':       'ClearSign'
+        },
+        body: JSON.stringify({ model: MODEL, messages })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error?.message || `API error (${res.status}). Please try again.`);
+      }
+
+      const data = await res.json();
+      const raw  = data?.choices?.[0]?.message?.content ?? '';
+
+      // Parse the JSON array from the response
+      const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      try {
+        return JSON.parse(cleaned);
+      } catch {
+        const match = cleaned.match(/\[[\s\S]*\]/);
+        if (match) return JSON.parse(match[0]);
+        throw new Error('The AI returned an unexpected response. Please try again.');
+      }
+    }
+
+    function renderQuiz(questions) {
+      const container = document.getElementById('quizQuestions');
+      container.innerHTML = questions.map((q, qIdx) => `
+        <div class="quiz-question" id="question-${qIdx}">
+          <p class="q-number">${t('quiz-question-of').replace('{n}', qIdx + 1).replace('{total}', questions.length)}</p>
+          <p class="q-text">${escHtml(q.question)}</p>
+          <div class="q-options">
+            ${q.options.map((opt, oIdx) => `
+              <button class="q-option"
+                      id="opt-${qIdx}-${oIdx}"
+                      onclick="selectAnswer(${qIdx}, ${oIdx}, ${q.correct}, ${questions.length})">
+                ${escHtml(opt)}
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+
+      document.getElementById('quizLoading').style.display = 'none';
+      document.getElementById('quizContent').classList.add('visible');
+    }
+
+    function selectAnswer(qIdx, oIdx, correctIdx, totalQuestions) {
+      // Lock all options in this question
+      const optButtons = document.querySelectorAll(`[id^="opt-${qIdx}-"]`);
+      optButtons.forEach((btn, i) => {
+        btn.disabled = true;
+        if (i === correctIdx) {
+          btn.classList.add('opt-correct');
+        } else if (i === oIdx && oIdx !== correctIdx) {
+          btn.classList.add('opt-wrong');
+        } else {
+          btn.classList.add('opt-dimmed');
+        }
+      });
+
+      if (oIdx === correctIdx) quizScore++;
+      quizAnswered++;
+
+      if (quizAnswered === totalQuestions) {
+        showResults(quizScore, totalQuestions);
+      }
+    }
+
+    function showResults(score, total) {
+      const messages = t('quiz-messages');
+      const labels   = t('quiz-labels');
+
+      document.getElementById('scoreNum').textContent   = score;
+      document.getElementById('scoreDenom').textContent = `/ ${total}`;
+      document.getElementById('scoreLabel').textContent  = labels[score] || '';
+      document.getElementById('scoreMessage').textContent = messages[score] || '';
+
+      document.getElementById('quizResults').classList.add('visible');
+      document.getElementById('quizResults').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    // ── Comparison screen ────────────────────────────────────────────────────
+    function showComparison() {
+      const pre  = prequizScore;
+      const post = quizScore;
+      const diff = post - pre;
+
+      document.getElementById('comparePreNum').textContent  = pre;
+      document.getElementById('comparePostNum').textContent = post;
+
+      const deltaEl = document.getElementById('compareDelta');
+      const msgEl   = document.getElementById('compareMsg');
+
+      if (diff > 0) {
+        const word = diff === 1 ? t('compare-point') : t('compare-points');
+        deltaEl.textContent = `+${diff} ${word}`;
+        deltaEl.className   = 'compare-delta positive';
+        const improved = t('compare-improved');
+        msgEl.textContent = improved[diff] || t('compare-improved-generic').replace('{diff}', diff);
+      } else if (diff === 0) {
+        deltaEl.textContent = t('compare-same-score');
+        deltaEl.className   = 'compare-delta neutral';
+        msgEl.textContent   = pre === 5 ? t('compare-neutral-5') : t('compare-neutral-other');
+      } else {
+        const word = diff === -1 ? t('compare-point') : t('compare-points');
+        deltaEl.textContent = `${diff} ${word}`;
+        deltaEl.className   = 'compare-delta negative';
+        msgEl.textContent   = t('compare-negative');
+      }
+
+      showScreen('compare');
+    }
+
+    // ── Loading label helper ─────────────────────────────────────────────────
+    function setLoadingLabel(text) {
+      document.getElementById('loadingLabel').textContent = text;
+    }
+
+    // ── Error banner helpers ─────────────────────────────────────────────────
+    function showError(msg) {
+      const banner = document.getElementById('errorBanner');
+      banner.textContent = msg;
+      banner.classList.add('visible');
+    }
+
+    function hideError() {
+      document.getElementById('errorBanner').classList.remove('visible');
+    }
+  </script>
+
+</body>
+</html>
