@@ -122,8 +122,9 @@
     .lang-btn:hover:not(.active) { color: var(--text); }
 
     /* ── Screens ── */
-    .screen { display: none; flex: 1; }
+    .screen { display: none; flex: 1; opacity: 0; transition: opacity 0.18s ease; }
     .screen.active { display: flex; flex-direction: column; }
+    .screen.active.screen-visible { opacity: 1; }
     #home-screen { align-items: stretch; }
 
     /* ── Hero ── */
@@ -1033,6 +1034,37 @@
       border-top: 1px solid var(--border);
       flex-shrink: 0;
     }
+
+    /* ── Summary streaming ── */
+    @keyframes sum-shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .sum-skeleton {
+      display: inline-block;
+      background: linear-gradient(90deg, var(--border) 25%, var(--bg) 50%, var(--border) 75%);
+      background-size: 200% 100%;
+      animation: sum-shimmer 1.5s infinite;
+      border-radius: 4px;
+      color: transparent;
+      height: 1em;
+      vertical-align: middle;
+    }
+    .sum-skeleton-s  { width: 38%; }
+    .sum-skeleton-m  { width: 62%; }
+    .sum-skeleton-l  { width: 86%; }
+    @keyframes sum-cursor-blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+    .stream-cursor::after {
+      content: '▋';
+      display: inline;
+      animation: sum-cursor-blink 0.55s step-end infinite;
+      color: var(--blue);
+      font-size: 0.75em;
+      margin-left: 1px;
+    }
   </style>
 </head>
 <body>
@@ -1172,10 +1204,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round"
-                  d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5
-                     A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0
-                     0-3.375-3.375H8.25m6.75 12H9m4.06-7.19-2.56-2.56a1.125
-                     1.125 0 0 0-1.59 0L3 15"/>
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"/>
           </svg>
           Try a Sample Contract
         </button>
@@ -1441,6 +1470,9 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc =
       'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+    // Make the initially-active screen visible (fade-in system requires this class)
+    document.querySelector('.screen.active').classList.add('screen-visible');
+
     // ── Language ─────────────────────────────────────────────────────────────
     let language = 'en';
 
@@ -1652,15 +1684,32 @@
 
     // ── Screen routing ───────────────────────────────────────────────────────
     function showScreen(name) {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.getElementById(name + '-screen').classList.add('active');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      if (name === 'upload') {
-        const cb = document.getElementById('disclaimerCheck');
-        cb.checked = false;
-        document.getElementById('dropZone').classList.add('locked');
-        document.getElementById('fileInput').disabled = true;
-        document.getElementById('btnSample').disabled = true;
+      const FADE = 180;
+      const current = document.querySelector('.screen.active');
+      const next = document.getElementById(name + '-screen');
+
+      function activate() {
+        if (current) {
+          current.classList.remove('active', 'screen-visible');
+        }
+        next.classList.add('active');
+        next.offsetHeight; // force reflow so transition fires
+        next.classList.add('screen-visible');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (name === 'upload') {
+          const cb = document.getElementById('disclaimerCheck');
+          cb.checked = false;
+          document.getElementById('dropZone').classList.add('locked');
+          document.getElementById('fileInput').disabled = true;
+          document.getElementById('btnSample').disabled = true;
+        }
+      }
+
+      if (current && current !== next) {
+        current.classList.remove('screen-visible');
+        setTimeout(activate, FADE);
+      } else {
+        activate();
       }
     }
 
@@ -1671,12 +1720,27 @@
       document.getElementById('btnSample').disabled = !checked;
     }
 
-    function loadSampleContract() {
-      const binary = atob(SAMPLE_PDF_B64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-      const blob = new Blob([bytes], { type: 'application/pdf' });
-      const file = new File([blob], 'SampleRentalAgreement.pdf', { type: 'application/pdf' });
+    async function loadSampleContract() {
+      showScreen('loading');
+      setLoadingLabel(t('loading-reading'));
+
+      // Yield so the loading screen renders before the synchronous atob decode
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      let file;
+      try {
+        const binary = atob(SAMPLE_PDF_B64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        file = new File([blob], 'SampleRentalAgreement.pdf', { type: 'application/pdf' });
+        if (!file || file.size === 0) throw new Error('Sample file is empty.');
+      } catch (err) {
+        showScreen('upload');
+        showError('Could not load the sample contract. Please try again.');
+        return;
+      }
+
       handleFile(file);
     }
 
@@ -1745,7 +1809,7 @@
       for (let i = 1; i <= pdf.numPages; i++) {
         const page    = await pdf.getPage(i);
         const content = await page.getTextContent();
-        const pageText = content.items.map(item => item.str).join(' ');
+        const pageText = content.items.map(item => item.str ?? '').join(' ');
         fullText += pageText + '\n';
       }
 
@@ -1839,14 +1903,24 @@ Rules:
 
     // ── JSON parsing (strips markdown code fences if present) ────────────────
     function parseJSON(raw) {
-      // Strip ```json ... ``` or ``` ... ``` wrappers
-      const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      // Strip all backtick fences wherever they appear
+      let s = raw.replace(/```(?:json)?/gi, '').trim();
+      // Skip any preamble text before the first { or [
+      const obj = s.indexOf('{'), arr = s.indexOf('[');
+      if (obj !== -1 || arr !== -1) {
+        const start = (obj === -1) ? arr : (arr === -1) ? obj : Math.min(obj, arr);
+        s = s.slice(start);
+      }
+      // Remove trailing commas before } or ] — common LLM formatting mistake
+      s = s.replace(/,(\s*[}\]])/g, '$1');
       try {
-        return JSON.parse(cleaned);
+        return JSON.parse(s);
       } catch {
-        // Try extracting the first {...} block as a fallback
-        const match = cleaned.match(/\{[\s\S]*\}/);
-        if (match) return JSON.parse(match[0]);
+        // Last-resort: extract the outermost {...} block and retry
+        const match = s.match(/\{[\s\S]*\}/);
+        if (match) {
+          try { return JSON.parse(match[0].replace(/,(\s*[}\]])/g, '$1')); } catch {}
+        }
         throw new Error('The AI returned an unexpected response. Please try again.');
       }
     }
@@ -1878,7 +1952,7 @@ Rules:
 
     function fillList(id, items) {
       const ul = document.getElementById(id);
-      ul.innerHTML = items.map(text => `<li>${escHtml(text)}</li>`).join('');
+      ul.innerHTML = items.filter(text => text != null).map(text => `<li>${escHtml(text)}</li>`).join('');
     }
 
     function fillRisks(id, risks) {
@@ -2076,17 +2150,211 @@ Rules:
       document.getElementById('prequizResults').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
+    // ── Summary streaming helpers ─────────────────────────────────────────────
+
+    // Reads an in-progress JSON string value for `field` from `text`.
+    // Returns { value: string, complete: bool } when the opening quote is found,
+    // or null if the field hasn't started yet.
+    function _sumPartialStr(text, field) {
+      const idx = text.indexOf(`"${field}"`);
+      if (idx === -1) return null;
+      const colonPos = text.indexOf(':', idx + field.length + 2);
+      if (colonPos === -1) return null;
+      const rest = text.slice(colonPos + 1).trimStart();
+      if (!rest.startsWith('"')) return null;
+
+      let out = '', i = 1;
+      while (i < rest.length) {
+        const c = rest[i];
+        if (c === '\\' && i + 1 < rest.length) {
+          const esc = rest[i + 1];
+          out += esc === 'n' ? '\n' : esc === 't' ? '\t' : esc;
+          i += 2;
+        } else if (c === '"') {
+          return { value: out, complete: true };
+        } else {
+          out += c;
+          i++;
+        }
+      }
+      return out.length ? { value: out, complete: false } : null;
+    }
+
+    // Returns a parsed array for `field` once the closing ] is found, else null.
+    function _sumCompleteArr(text, field) {
+      const idx = text.indexOf(`"${field}"`);
+      if (idx === -1) return null;
+      const start = text.indexOf('[', idx);
+      if (start === -1) return null;
+
+      let depth = 0, inStr = false, esc = false;
+      for (let i = start; i < text.length; i++) {
+        const c = text[i];
+        if (esc)              { esc = false; continue; }
+        if (c === '\\' && inStr) { esc = true; continue; }
+        if (c === '"')        { inStr = !inStr; continue; }
+        if (inStr)            continue;
+        if (c === '[' || c === '{') depth++;
+        else if (c === ']' || c === '}') {
+          if (--depth === 0) {
+            try { return JSON.parse(text.slice(start, i + 1)); } catch { return null; }
+          }
+        }
+      }
+      return null;
+    }
+
+    function _sumExtractPartial(text) {
+      return {
+        title:       _sumPartialStr(text, 'title'),
+        parties:     _sumPartialStr(text, 'parties'),
+        obligations: _sumCompleteArr(text, 'obligations'),
+        deadlines:   _sumCompleteArr(text, 'deadlines'),
+        rights:      _sumCompleteArr(text, 'rights'),
+        risks:       _sumCompleteArr(text, 'risks'),
+      };
+    }
+
+    const _SKEL = `
+      <li><span class="sum-skeleton sum-skeleton-l"></span></li>
+      <li><span class="sum-skeleton sum-skeleton-m"></span></li>
+      <li><span class="sum-skeleton sum-skeleton-s"></span></li>`;
+
+    function _showSummarySkeleton(filename) {
+      document.getElementById('sumFilename').textContent = filename;
+      document.getElementById('sumTitle').innerHTML   = '<span class="sum-skeleton sum-skeleton-m"></span>';
+      document.getElementById('sumParties').innerHTML = '<span class="sum-skeleton sum-skeleton-l"></span>';
+      for (const id of ['sumObligations','sumDeadlines','sumRights','sumRisks'])
+        document.getElementById(id).innerHTML = _SKEL;
+    }
+
+    function _applyStreamingSummary(partial) {
+      const titleEl   = document.getElementById('sumTitle');
+      const partiesEl = document.getElementById('sumParties');
+
+      if (partial.title) {
+        titleEl.textContent = partial.title.value;
+        titleEl.classList.toggle('stream-cursor', !partial.title.complete);
+      }
+      if (partial.parties) {
+        partiesEl.textContent = partial.parties.value;
+        partiesEl.classList.toggle('stream-cursor', !partial.parties.complete);
+      }
+      if (partial.obligations) fillList('sumObligations', partial.obligations);
+      if (partial.deadlines)   fillList('sumDeadlines',   partial.deadlines);
+      if (partial.rights)      fillList('sumRights',      partial.rights);
+      if (partial.risks)       fillRisks('sumRisks',      partial.risks);
+    }
+
+    // Streams the summary API call, firing onChunk(accumulatedText) each token.
+    async function callOpenRouterStream(file, content, onChunk) {
+      const langInstruction = language === 'es'
+        ? 'IMPORTANT: Write ALL output — every field value, every string — in Spanish. Do not use English anywhere in the JSON values.'
+        : 'Write all output in English.';
+
+      const systemPrompt = `You are a legal contract analyser. Read the contract and respond with ONLY a valid JSON object — no markdown, no explanation, nothing else.
+
+${langInstruction}
+
+Return exactly this structure:
+{
+  "title": "Name of the contract",
+  "parties": "Who is involved and the effective date (one short sentence)",
+  "obligations": ["Plain-language obligation 1", "..."],
+  "deadlines": ["Plain-language deadline 1", "..."],
+  "rights": ["Plain-language right 1", "..."],
+  "risks": [
+    { "title": "Short risk title", "description": "Plain-language explanation of why this is risky" }
+  ]
+}
+
+Rules:
+- Write in plain language any non-lawyer can understand.
+- Each array must have 3–5 items.
+- For risks, flag clauses that are one-sided, unusual, or could harm the signer.
+- Be specific — reference actual terms from the contract.`;
+
+      const messages = file.type.startsWith('image/')
+        ? [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: [
+                { type: 'text',      text: 'Here is the contract image. Analyse it and return the JSON.' },
+                { type: 'image_url', image_url: { url: content } }
+            ]}
+          ]
+        : [
+            { role: 'system', content: systemPrompt },
+            { role: 'user',   content: `Here is the contract text:\n\n${content}` }
+          ];
+
+      const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${API_KEY}`,
+          'Content-Type':  'application/json',
+          'HTTP-Referer':  window.location.href,
+          'X-Title':       'ClearSign'
+        },
+        body: JSON.stringify({ model: MODEL, messages, stream: true })
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error?.message || `API error (${res.status}). Please try again.`);
+      }
+
+      const reader  = res.body.getReader();
+      const decoder = new TextDecoder();
+      let sseBuf = '', accumulated = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        sseBuf += decoder.decode(value, { stream: true });
+        const lines = sseBuf.split('\n');
+        sseBuf = lines.pop() ?? '';
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith('data:')) continue;
+          const payload = trimmed.slice(5).trim();
+          if (payload === '[DONE]') return accumulated;
+          try {
+            const evt   = JSON.parse(payload);
+            const delta = evt?.choices?.[0]?.delta?.content ?? '';
+            if (delta) { accumulated += delta; onChunk(accumulated); }
+          } catch {}
+        }
+      }
+      return accumulated;
+    }
+
     // ── Load summary (called after pre-quiz is complete) ──────────────────────
     async function loadSummary() {
       showScreen('loading');
       setLoadingLabel(t('loading-simplifying'));
+
+      let screenShown = false;
+      let accumulated = '';
+
       try {
-        const summary = await callOpenRouter(currentFile, currentContent);
+        accumulated = await callOpenRouterStream(currentFile, currentContent, (text) => {
+          if (!screenShown) {
+            _showSummarySkeleton(currentFile.name);
+            showScreen('summary');
+            screenShown = true;
+          }
+          _applyStreamingSummary(_sumExtractPartial(text));
+        });
+
+        // Final authoritative parse — clears any cursor/skeleton artifacts
+        const summary = parseJSON(accumulated);
         populateSummary(currentFile.name, summary);
-        showScreen('summary');
+        document.getElementById('sumTitle').classList.remove('stream-cursor');
+        document.getElementById('sumParties').classList.remove('stream-cursor');
+
+        if (!screenShown) showScreen('summary');
       } catch (err) {
         showScreen('prequiz');
-        // Surface the error without disrupting the pre-quiz results the user just saw
         alert('Could not generate the summary. Please try again.\n\n' + (err.message || ''));
       }
     }
@@ -2181,12 +2449,15 @@ Rules:
       const raw  = data?.choices?.[0]?.message?.content ?? '';
 
       // Parse the JSON array from the response
-      const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      let cleaned = raw.replace(/```(?:json)?/gi, '').trim();
+      // Remove trailing commas and isolate the [...] block
+      cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
+      const arrStart = cleaned.indexOf('[');
+      const arrEnd   = cleaned.lastIndexOf(']');
+      if (arrStart !== -1 && arrEnd > arrStart) cleaned = cleaned.slice(arrStart, arrEnd + 1);
       try {
         return JSON.parse(cleaned);
       } catch {
-        const match = cleaned.match(/\[[\s\S]*\]/);
-        if (match) return JSON.parse(match[0]);
         throw new Error('The AI returned an unexpected response. Please try again.');
       }
     }
