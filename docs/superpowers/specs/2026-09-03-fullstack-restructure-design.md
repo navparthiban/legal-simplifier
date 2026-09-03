@@ -19,6 +19,11 @@ means:
 
 ## Goals
 
+0. **Zero visual/content/functional regressions.** This is a structural
+   reorganization, not a redesign or rewrite. Every screen must look pixel-
+   identical, read word-for-word identical (including EN and ES copy), and
+   behave identically to the current `index.html` once ported. See "Parity
+   Guarantee" below for how this is enforced.
 1. Move the OpenRouter API key server-side, out of any client-shipped code.
 2. Split the app into a conventional frontend/backend structure, matching what
    a college full-stack course / internship would expect to see.
@@ -43,6 +48,38 @@ means:
 - Automated test suite (tracked separately as `PRD.md` P2 — this restructure
   should not block on it, though it makes future testing much easier).
 - Migrating off `openrouter/free` or changing the AI prompts/behavior.
+
+## Parity Guarantee
+
+This restructure changes *how the code is organized*, not what it says or
+does. Concretely:
+
+- **CSS values are copied verbatim.** Every color, spacing value, font size,
+  and the `:root` custom properties in `ARCHITECTURE.md` are copied byte-for-
+  byte from `index.html` into `global.css` — not re-derived, approximated, or
+  "cleaned up."
+- **Copy is copied verbatim.** Every string in the `TRANSLATIONS` dictionary
+  (both `en` and `es`) is copied as-is into `i18n/translations.ts`. No
+  rewording, retranslating, or "improving" wording during the port.
+- **Markup structure is preserved.** Each screen's DOM structure (element
+  types, class names, nesting) is carried over into its React component
+  as-is, translated mechanically into JSX — not redesigned.
+- **Logic is ported, not reimplemented from memory.** Function bodies for
+  things like `parseJSON`, quiz scoring, streaming chunk handling, and
+  `escHtml`-equivalent escaping are moved with their exact behavior intact.
+  Where a mechanic must change (e.g. `showScreen()`'s DOM class toggle
+  becoming a React state value, or the sample contract moving from a base64
+  literal to a fetched static file), only the *mechanism* changes — the
+  observable result is identical.
+- **Screen-by-screen verification against the live app.** Before starting the
+  restructure, take note of (or screenshot) each of the 7 screens and their
+  behavior in the current `index.html`. After porting each screen, compare
+  directly against that baseline — same layout, same copy, same colors, same
+  interactions — before moving to the next screen. Any mismatch is a bug to
+  fix immediately, not a "close enough."
+- **`index.html` stays untouched and runnable until the migration is verified
+  complete**, so there's always a known-good reference to compare against and
+  a fallback if something in the new structure doesn't match.
 
 ## Architecture
 
@@ -137,6 +174,10 @@ source.
 
 Built and verified in phases, not a big-bang rewrite:
 
+0. **Capture the baseline** — before any code changes, walk all 7 screens of
+   the current `index.html` (both languages) and note exact copy, layout, and
+   behavior to compare against later. `index.html` is left untouched and
+   runnable throughout the migration as the reference.
 1. **Backend first** — scaffold Express + TypeScript, implement all three
    routes against the real OpenRouter API, verify each with a manual request
    (e.g. curl/Postman) before any frontend work starts.
@@ -164,7 +205,10 @@ Built and verified in phases, not a big-bang rewrite:
 ## Testing
 
 No automated test suite is being added as part of this restructure (tracked
-separately, `PRD.md` P2). Verification is manual: each ported screen is
-exercised in the browser against the real backend before moving to the next,
-and the full 7-screen flow (including EN/ES toggle and the sample contract
-path) is walked end-to-end once the migration is complete.
+separately, `PRD.md` P2). Verification is manual and parity-focused, per
+"Parity Guarantee" above: each ported screen is exercised in the browser
+against the real backend and directly compared to the `index.html` baseline
+before moving to the next, and the full 7-screen flow (including EN/ES toggle
+and the sample contract path) is walked end-to-end once the migration is
+complete. `index.html` is only removed/archived after this final end-to-end
+check passes and the user confirms.
