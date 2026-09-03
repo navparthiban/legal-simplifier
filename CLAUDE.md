@@ -2,57 +2,88 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Docs
+
+This project keeps living docs that must stay in sync with the code:
+
+- **`ARCHITECTURE.md`** — file layout, screen flow, data flow, key functions.
+  **Update this whenever you change the file structure or add/remove/rename a
+  screen or major function.** Don't let it drift the way it previously did.
+- **`PRD.md`** — current state, known gaps/risks, and the prioritized roadmap.
+  Update the roadmap checkboxes as items are completed, and add new gaps as
+  they're discovered.
+- **`README.md`** — user/portfolio-facing overview. Update if features, setup
+  steps, or the tech stack change.
+
 ## Project Overview
 
-ClearSign is a single-file web application (`index.html`) — no build step, no dependencies to install, no framework. Open the file directly in a browser to run it. All HTML, CSS, and JavaScript live in one file.
+ClearSign reads a legal contract (PDF or image) and produces a plain-language
+summary plus before/after comprehension quizzes.
 
-## Architecture
+**⚠️ Architecture is mid-migration.** The app currently runs as a single static
+file (`index.html`) with the OpenRouter API key hardcoded client-side. A
+frontend/backend restructure is in progress to move the API key server-side
+(see `PRD.md` → Roadmap → P0). Check `ARCHITECTURE.md` for whichever state is
+current before assuming the single-file description below still applies —
+update that section (and this one) once the restructure lands.
 
-The app is a single-page application built with a screen-switching pattern. There is no router — screens are shown/hidden with a CSS class:
+### Pre-restructure state (current, as of 2026-09-03)
 
-```css
-.screen { display: none; }
-.screen.active { display: flex; flex-direction: column; }
-```
+Single-file web app (`index.html`) — no build step. All HTML, CSS, and JS live
+in one file. Full details in `ARCHITECTURE.md`; summary:
 
-```js
-function showScreen(name) {
-  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-  document.getElementById(name + '-screen').classList.add('active');
-}
-```
+- No router — screens are `<section>`s toggled via a `.screen.active` CSS class.
+- 7 screens: home, upload, loading, pre-quiz, summary, quiz, comparison.
+- EN/ES i18n via a `TRANSLATIONS` dictionary and `data-i18n` attributes.
+- AI calls go straight from the browser to OpenRouter using a hardcoded
+  `API_KEY` constant — **do not add new features that assume this is safe.**
+  Any new AI-call code should be written assuming it'll move behind a backend
+  endpoint shortly.
 
-### Screens (in DOM order)
+### Data flow (current)
 
-| Screen ID | Purpose |
-|---|---|
-| `#home-screen` | Landing page with hero and feature cards |
-| `#upload-screen` | Drag-and-drop / browse file upload area |
-| `#loading-screen` | Spinner shown during PDF extraction and API calls |
-| `#summary-screen` | AI-generated plain-language contract breakdown |
-| `#quiz-screen` | 5-question MCQ generated from the summary |
-
-### Data flow
-
-1. User uploads a PDF or image on the upload screen.
-2. `handleFile(file)` dispatches to either `extractPdfText()` (PDF.js) or `encodeImageBase64()` (FileReader).
-3. The extracted text or base64 data URL is sent to OpenRouter via `callOpenRouter()`.
-4. The API returns a JSON object; `parseJSON()` strips markdown fences and falls back to regex extraction.
-5. `populateSummary()` fills the summary screen DOM and stores the data in `currentSummaryData`.
-6. On the summary screen, "Take the Quiz" calls `startQuiz()`, which calls `callOpenRouterForQuiz()` with the stored summary, then `renderQuiz()` builds the question DOM.
+1. User uploads a PDF/image, or clicks "Try Sample Contract" (which decodes a
+   bundled base64 PDF — see `PRD.md` P1 for why that's flagged as tech debt).
+2. `handleFile(file)` dispatches to `extractPdfText()` (PDF.js) or
+   `encodeImageBase64()`.
+3. `callOpenRouterForPreQuiz()` generates a quiz from the raw contract text,
+   answered before the user sees any summary.
+4. `callOpenRouterStream()` streams the plain-language summary into the UI;
+   `parseJSON()` strips markdown fences and falls back to regex extraction.
+5. `populateSummary()` fills the summary screen DOM and stores the result in
+   `currentSummaryData`.
+6. "Take the Quiz" → `startQuiz()` → `callOpenRouterForQuiz()` using the stored
+   summary → `renderQuiz()`.
+7. `showComparison()` shows the pre-quiz vs. post-quiz score.
 
 ### External dependencies (CDN only)
 
-- **PDF.js 3.11.174** — `pdf.min.js` + `pdf.worker.min.js` from cdnjs. Worker URL must be set via `pdfjsLib.GlobalWorkerOptions.workerSrc`.
-- **OpenRouter API** — `https://openrouter.ai/api/v1/chat/completions`, model `openrouter/free`. API key is hardcoded in `API_KEY`. Images use the vision message format (`image_url` content block); PDFs use plain text messages.
+- **PDF.js 3.11.174** — `pdf.min.js` + `pdf.worker.min.js` from cdnjs. Worker URL
+  must be set via `pdfjsLib.GlobalWorkerOptions.workerSrc`.
+- **OpenRouter API** — `https://openrouter.ai/api/v1/chat/completions`, model
+  `openrouter/free`. Images use the vision `image_url` content block; PDFs use
+  plain text messages.
 
 ### Key implementation details
 
-- **PDF text cap:** Extracted text is capped at 12,000 characters to stay within free-tier token limits.
-- **JSON parsing:** `parseJSON()` strips ` ```json ` fences first, then falls back to matching the first `{...}` or `[...]` block in the response.
-- **XSS:** All API-returned strings must go through `escHtml()` before being set as `innerHTML`.
-- **Quiz state:** `currentSummaryData`, `quizAnswered`, and `quizScore` are module-level variables reset at the start of each `startQuiz()` call.
-- **Quiz answer format:** The API is asked to return `[{ "question": "...", "options": ["A","B","C","D"], "correct": 0 }]` — `correct` is a zero-based index.
+- **PDF text cap:** Extracted text is capped at 12,000 characters to stay within
+  free-tier token limits.
+- **JSON parsing:** `parseJSON()` strips ` ```json ` fences first, then falls
+  back to matching the first `{...}` or `[...]` block in the response.
+- **XSS:** All API-returned strings must go through `escHtml()` before being set
+  as `innerHTML`.
+- **Quiz state:** `currentSummaryData`, `quizAnswered`, and `quizScore` are
+  module-level variables reset at the start of each `startQuiz()` call.
+- **Quiz answer format:** The API is asked to return
+  `[{ "question": "...", "options": ["A","B","C","D"], "correct": 0 }]` —
+  `correct` is a zero-based index.
+
+### Secrets
+
+- **Never hardcode API keys in client-shipped code.** The current `API_KEY`
+  constant in `index.html` is known tech debt (`PRD.md` P0), not a pattern to
+  copy. New backend code should read secrets from `.env` (gitignored) via
+  `process.env`, never inline.
 
 ## Color Palette
 
