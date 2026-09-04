@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import './styles/global.css';
+import './styles/app.css';
 import { AppProvider } from './state/AppContext';
 import { App } from './App';
 

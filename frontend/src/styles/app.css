@@ -1,0 +1,18 @@
+/*
+ * The ONLY CSS that isn't a verbatim copy from index.html.
+ *
+ * In index.html, <nav> / <main.screen> / <footer> are direct flex children of
+ * <body> (which is `display:flex; flex-direction:column; min-height:100vh`), so
+ * `.screen { flex: 1 }` fills the space between the nav and the footer.
+ *
+ * React mounts the app inside <div id="root">, which would otherwise be a
+ * content-height block and break that chain. Giving #root the same role
+ * (grow to fill body, lay children out as a column) makes the observable
+ * layout identical — e.g. the loading spinner centers vertically and the
+ * streaming summary fills the viewport, matching the original.
+ */
+#root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
