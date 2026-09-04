@@ -17,6 +17,25 @@ cors. Frontend — Vite 5, React 18, TypeScript, pdfjs-dist 3.11.174.
 
 **Spec:** `docs/superpowers/specs/2026-09-03-fullstack-restructure-design.md`
 
+## Status (2026-09-03)
+
+Implemented on branch `fullstack-restructure`. Phases 1–6 done:
+
+- **P1 backend** — `feat(backend): Express + TS proxy for OpenRouter` (8d809a4).
+  All three routes smoke-tested against real OpenRouter (200 / 400 / 502 paths).
+- **P2–P3 frontend** — `feat(frontend): React + TS port of the full 7-screen app`
+  (11135d2) + `refactor(frontend)` (8cc5737). `tsc --noEmit` + `vite build`
+  clean. 23-case harness confirms the verbatim logic ports (`parseJSON`,
+  `validateQuestions`, `_sumExtractPartial`, `comparison`, `preQuizResult`,
+  `escHtml`) match the originals, EN + ES. Vite `/api` proxy verified end-to-end.
+- **P4–P5** — folded into the frontend commit (i18n keys, sample PDF byte-
+  identical in `frontend/public/`, no base64 literal).
+- **P6 docs** — `docs: update ARCHITECTURE/PRD/README/CLAUDE` (0c06272).
+
+**Remaining (needs a human at a browser):** Phase 7 — the screen-by-screen
+visual parity walk against `index.html` (both languages, sample-contract path,
+full flow). Then delete `index.html` and rotate the OpenRouter key.
+
 ## Global Constraints
 
 - **Zero visual/content/functional drift.** CSS values copied byte-for-byte from
