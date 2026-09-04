@@ -3,8 +3,7 @@
  * (`showPreQuizResults`, `showResults`, `showComparison`). Kept as pure
  * functions of the active language + scores.
  */
-import { tArr, tStr } from '../i18n/useTranslation';
-import type { Language } from '../i18n/translations';
+import { tArr, tStr, type Language } from '../i18n/translations';
 
 export function preQuizResult(language: Language, score: number) {
   const labels = tArr(language, 'prequiz-labels');

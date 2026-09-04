@@ -193,3 +193,13 @@ export type Language = 'en' | 'es';
 export function translate(language: Language, key: string): string | string[] {
   return (TRANSLATIONS[language] ?? TRANSLATIONS.en)[key] ?? TRANSLATIONS.en[key] ?? key;
 }
+
+export function tStr(language: Language, key: string): string {
+  const v = translate(language, key);
+  return Array.isArray(v) ? key : v;
+}
+
+export function tArr(language: Language, key: string): string[] {
+  const v = translate(language, key);
+  return Array.isArray(v) ? v : [];
+}

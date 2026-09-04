@@ -113,6 +113,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [quizPicks, setQuizPicks] = useState<(number | null)[]>([]);
 
   const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const screenRef = useRef<ScreenName>('home');
+  screenRef.current = screen;
 
   // Reveal the initial screen (matches: add 'screen-visible' after load).
   useEffect(() => {
@@ -134,28 +136,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [language],
   );
 
-  const showScreen = useCallback(
-    (name: ScreenName) => {
-      setScreen((current) => {
-        if (name === current) {
-          setScreenVisible(true);
-          return current;
-        }
-        if (fadeTimer.current) clearTimeout(fadeTimer.current);
-        // fade current out, then swap + fade in (index.html FADE dance)
-        setScreenVisible(false);
-        fadeTimer.current = setTimeout(() => {
-          setScreen(name);
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() => setScreenVisible(true)),
-          );
-        }, FADE);
-        return current;
-      });
-    },
-    [],
-  );
+  const showScreen = useCallback((name: ScreenName) => {
+    if (name === screenRef.current) {
+      setScreenVisible(true);
+      return;
+    }
+    if (fadeTimer.current) clearTimeout(fadeTimer.current);
+    // fade current out, then swap + fade in (index.html showScreen FADE dance)
+    setScreenVisible(false);
+    fadeTimer.current = setTimeout(() => {
+      setScreen(name);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      requestAnimationFrame(() => requestAnimationFrame(() => setScreenVisible(true)));
+    }, FADE);
+  }, []);
 
   const setLanguage = useCallback((lang: Language) => setLanguageState(lang), []);
   const showError = useCallback((msg: string) => setError(msg), []);
