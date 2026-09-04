@@ -6,11 +6,11 @@ whenever scope changes — don't let it drift out of sync with reality the way
 
 ## Current State
 
-ClearSign is now a **`frontend/` (Vite + React + TypeScript) + `backend/`
+ClearSign is a **`frontend/` (Vite + React + TypeScript) + `backend/`
 (Express + TypeScript)** app. The backend is the only OpenRouter client and
-reads the API key from `backend/.env`. The original single-file `index.html`
-is still in the repo root, unmodified, as the parity reference until the new
-app is confirmed to match it end-to-end (see the P0 roadmap item below).
+reads the API key from `backend/.env`. It was ported screen-by-screen from the
+original single-file `index.html` (now removed) with a zero-drift parity
+guarantee — see `docs/superpowers/`.
 
 No persistence, no accounts — same as before.
 
@@ -32,12 +32,9 @@ Roughly ordered by severity.
 
 - **P0 — Rotate the previously-committed OpenRouter key.** The key that used to
   be hardcoded in `index.html` is in git history and now lives in
-  `backend/.env`. It is no longer shipped to the browser, but it should be
-  rotated on OpenRouter and the new value put in `backend/.env` only.
-- **P1 — `index.html` still in the tree.** The original single-file app is kept
-  as the parity reference. Delete it once the frontend/backend app is verified
-  to match it screen-by-screen (both languages, sample-contract path, full
-  pre/summary/quiz/compare flow).
+  `backend/.env`. It is no longer shipped to the browser, but anyone with the
+  git history has it, so it must be rotated on OpenRouter and the new value put
+  in `backend/.env` (and the deploy host's env vars) only.
 - **P1 — Free-tier model reliability.** `openrouter/free` is used for all AI calls.
   Free-tier models can be slow, rate-limited, or produce malformed JSON — the app
   has fallback parsing (`parseJSON`) but no retry/backoff strategy.
@@ -50,15 +47,17 @@ Roughly ordered by severity.
 
 ## Roadmap
 
-### P0 — Done (verify + finish)
+### P0 — Done
 - [x] Split `index.html` into a proper frontend/backend structure
       (`frontend/` Vite + React + TS, `backend/` Express + TS).
 - [x] Move the OpenRouter API key into a server-side `.env` file, proxied
       through backend endpoints. `.env` is gitignored; `.env.example` committed.
-- [ ] Verify the new app matches `index.html` screen-by-screen, then delete
-      `index.html`.
+- [x] Verify the new app matches `index.html` screen-by-screen (EN + ES, sample
+      path, full flow); `index.html` removed.
+
+### P0 — Open
 - [ ] Rotate the OpenRouter key that was previously committed to git history
-      and put the new value in `backend/.env` only.
+      and put the new value in `backend/.env` + the deploy host's env vars only.
 
 ### P1 — Next
 - [x] Stop embedding the sample contract as a base64 JS literal — it is now

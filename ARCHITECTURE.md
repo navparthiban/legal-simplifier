@@ -3,11 +3,12 @@
 Living doc — kept in sync with the actual file layout as the project changes.
 Last verified against the codebase: 2026-09-03.
 
-> **Restructure status:** the split from a single `index.html` into a
-> `frontend/` + `backend/` pair has landed. `index.html` is **still in the repo
-> root, unmodified**, as the parity reference until the user confirms the new
-> app matches it end-to-end (see `PRD.md`). It is not wired to anything and can
-> be deleted once that check passes.
+> **History:** this app used to be a single `index.html` (HTML + CSS + JS, with
+> the OpenRouter key hardcoded client-side). It was replaced by the
+> `frontend/` + `backend/` split below after a screen-by-screen parity check.
+> The CSS, the `TRANSLATIONS` dict, the markup, and the logic in `frontend/`
+> were copied verbatim from that file — see `docs/superpowers/` for the spec,
+> plan, and the parity guarantee that governed the port.
 
 ## File Layout
 
@@ -48,9 +49,8 @@ legal-simplifier/
 │   ├── vite.config.ts           # dev proxy: /api → http://localhost:8787
 │   └── package.json / tsconfig*.json
 │
-├── index.html                    # ORIGINAL single-file app — parity reference, unmodified
-├── SampleRentalAgreement.pdf     # source of truth for the sample (copied into frontend/public)
-├── docs/superpowers/
+├── SampleRentalAgreement.pdf     # canonical sample (the copy in frontend/public is what ships)
+├── docs/superpowers/             # spec + plan for the single-file → frontend/backend port
 │   ├── specs/2026-09-03-fullstack-restructure-design.md
 │   └── plans/2026-09-03-fullstack-restructure.md
 └── README.md / PRD.md / ARCHITECTURE.md / CLAUDE.md

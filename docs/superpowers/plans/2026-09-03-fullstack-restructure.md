@@ -32,9 +32,13 @@ Implemented on branch `fullstack-restructure`. Phases 1–6 done:
   identical in `frontend/public/`, no base64 literal).
 - **P6 docs** — `docs: update ARCHITECTURE/PRD/README/CLAUDE` (0c06272).
 
-**Remaining (needs a human at a browser):** Phase 7 — the screen-by-screen
-visual parity walk against `index.html` (both languages, sample-contract path,
-full flow). Then delete `index.html` and rotate the OpenRouter key.
+- **P7 parity walk** — done. Automated screen-by-screen comparison (both
+  languages, sample path, full flow) passed; one real regression found and
+  fixed (`#root` not filling the viewport, commit on branch). `index.html`
+  removed.
+
+**Remaining:** rotate the OpenRouter key (a manual action on openrouter.ai);
+deployment config if the app is to be hosted.
 
 ## Global Constraints
 

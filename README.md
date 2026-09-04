@@ -80,10 +80,10 @@ backend (reverse proxy, or set the API base at build time).
   flows through the app.
 - [`CLAUDE.md`](./CLAUDE.md) — instructions for Claude Code when working in this repo.
 
-> **Note:** the original single-file version (`index.html`, OpenRouter key baked
-> into the page) is still in the repo root as a parity reference during the
-> migration. It is not part of the running app and will be removed once the new
-> frontend/backend version is confirmed to match it.
+> The app was previously a single `index.html` with the OpenRouter key baked
+> into the page. That version was replaced by this `frontend/` + `backend/`
+> split after a screen-by-screen parity check; its history is in
+> `docs/superpowers/`.
 
 ## License
 

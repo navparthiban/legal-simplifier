@@ -24,18 +24,17 @@ The app is a **`frontend/` (Vite + React + TypeScript) + `backend/` (Express +
 TypeScript)** pair. The backend is the only OpenRouter client; the API key
 lives in `backend/.env` (gitignored) and is never shipped to the browser.
 
-> **`index.html` in the repo root is the ORIGINAL single-file version**, kept
-> unmodified as the parity reference until the new app is verified to match it
-> screen-by-screen (see `PRD.md` P0). Do not edit it and do not wire anything to
-> it — it will be deleted once parity is confirmed. When you need to know how
-> something is *supposed* to look or behave, `index.html` is the source of truth.
+> This app was ported from a single `index.html` (all HTML/CSS/JS in one file,
+> OpenRouter key hardcoded client-side) with a strict zero-drift parity
+> guarantee. That file has been removed; its git history plus
+> `docs/superpowers/` (spec + plan) are the record of what the CSS, copy,
+> markup, and logic were ported from.
 
 ### Current structure
 
 ```
 backend/   Express + TS. src/server.ts, src/routes/api.ts, src/services/openrouter.ts
 frontend/  Vite + React + TS. src/{screens,components,lib,i18n,state,styles}
-index.html original single-file app — parity reference, unmodified
 ```
 
 Full details in `ARCHITECTURE.md`. Summary:
@@ -81,23 +80,22 @@ Full details in `ARCHITECTURE.md`. Summary:
 
 ### Key implementation details
 
-- **Parity mandate.** This app was ported from `index.html` with a strict
-  "zero visual/content/functional drift" guarantee
+- **Parity mandate.** This app was ported from the old single-file `index.html`
+  with a strict "zero visual/content/functional drift" guarantee
   (`docs/superpowers/specs/2026-09-03-fullstack-restructure-design.md`). CSS
   (`frontend/src/styles/global.css`), the `TRANSLATIONS` dict, markup structure,
   and logic bodies were copied verbatim. Keep it that way — if you change
-  behavior, change it in a way that's intentional and documented, and check it
-  against `index.html`.
+  behavior, make it intentional and documented. The original is recoverable
+  from git history if you need to check something.
 - **PDF text cap:** 12,000 characters (`lib/pdf.extractPdfText`).
 - **JSON parsing:** `lib/parseJSON.parseJSON` (summary) and
   `services/openrouter.ts` `parsePreQuizJSON` / `parseQuizJSON` (quizzes) strip
   ` ```json ` fences, isolate the first `{...}` / `[...]` block, and tolerate
   trailing commas — each ported from its original inline cleaner.
-- **XSS:** In `index.html`, AI strings went through `escHtml()` before
-  `innerHTML`. In the React port they're rendered as JSX text children, which
-  React escapes — equivalent. `escHtml` is kept in `lib/quiz.ts` for reference.
-  The only `dangerouslySetInnerHTML` is `prequiz-intro` (a static translation
-  string).
+- **XSS:** The original injected AI strings via `innerHTML` behind `escHtml()`.
+  The React port renders them as JSX text children, which React escapes —
+  equivalent. `escHtml` is kept in `lib/quiz.ts` for reference. The only
+  `dangerouslySetInnerHTML` is `prequiz-intro` (a static translation string).
 - **Quiz answer format:** `[{ "question": "...", "options": ["A","B","C","D"],
   "correct": 0 }]` — `correct` is a zero-based index. `validateQuestions` pads /
   trims to exactly 4 options.
@@ -112,8 +110,8 @@ Full details in `ARCHITECTURE.md`. Summary:
   `backend/src/services/openrouter.ts` only. `backend/.env.example` is the
   committed template (blank value).
 - The key currently in `backend/.env` was ported from the old client-side
-  `index.html` constant and is in git history — it should be rotated on
-  OpenRouter (`PRD.md` P0).
+  constant and is in git history — it must be rotated on OpenRouter (`PRD.md`
+  P0). Deploy hosts get the key via their own env-var settings, never a commit.
 - Root `.gitignore` covers `node_modules/`, `.env`, `dist/`, `build/`.
 
 ## Color Palette
