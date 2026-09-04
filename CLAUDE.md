@@ -20,70 +20,101 @@ This project keeps living docs that must stay in sync with the code:
 ClearSign reads a legal contract (PDF or image) and produces a plain-language
 summary plus before/after comprehension quizzes.
 
-**⚠️ Architecture is mid-migration.** The app currently runs as a single static
-file (`index.html`) with the OpenRouter API key hardcoded client-side. A
-frontend/backend restructure is in progress to move the API key server-side
-(see `PRD.md` → Roadmap → P0). Check `ARCHITECTURE.md` for whichever state is
-current before assuming the single-file description below still applies —
-update that section (and this one) once the restructure lands.
+The app is a **`frontend/` (Vite + React + TypeScript) + `backend/` (Express +
+TypeScript)** pair. The backend is the only OpenRouter client; the API key
+lives in `backend/.env` (gitignored) and is never shipped to the browser.
 
-### Pre-restructure state (current, as of 2026-09-03)
+> **`index.html` in the repo root is the ORIGINAL single-file version**, kept
+> unmodified as the parity reference until the new app is verified to match it
+> screen-by-screen (see `PRD.md` P0). Do not edit it and do not wire anything to
+> it — it will be deleted once parity is confirmed. When you need to know how
+> something is *supposed* to look or behave, `index.html` is the source of truth.
 
-Single-file web app (`index.html`) — no build step. All HTML, CSS, and JS live
-in one file. Full details in `ARCHITECTURE.md`; summary:
+### Current structure
 
-- No router — screens are `<section>`s toggled via a `.screen.active` CSS class.
-- 7 screens: home, upload, loading, pre-quiz, summary, quiz, comparison.
-- EN/ES i18n via a `TRANSLATIONS` dictionary and `data-i18n` attributes.
-- AI calls go straight from the browser to OpenRouter using a hardcoded
-  `API_KEY` constant — **do not add new features that assume this is safe.**
-  Any new AI-call code should be written assuming it'll move behind a backend
-  endpoint shortly.
+```
+backend/   Express + TS. src/server.ts, src/routes/api.ts, src/services/openrouter.ts
+frontend/  Vite + React + TS. src/{screens,components,lib,i18n,state,styles}
+index.html original single-file app — parity reference, unmodified
+```
 
-### Data flow (current)
+Full details in `ARCHITECTURE.md`. Summary:
 
-1. User uploads a PDF/image, or clicks "Try Sample Contract" (which decodes a
-   bundled base64 PDF — see `PRD.md` P1 for why that's flagged as tech debt).
-2. `handleFile(file)` dispatches to `extractPdfText()` (PDF.js) or
-   `encodeImageBase64()`.
-3. `callOpenRouterForPreQuiz()` generates a quiz from the raw contract text,
-   answered before the user sees any summary.
-4. `callOpenRouterStream()` streams the plain-language summary into the UI;
-   `parseJSON()` strips markdown fences and falls back to regex extraction.
-5. `populateSummary()` fills the summary screen DOM and stores the result in
-   `currentSummaryData`.
-6. "Take the Quiz" → `startQuiz()` → `callOpenRouterForQuiz()` using the stored
-   summary → `renderQuiz()`.
-7. `showComparison()` shows the pre-quiz vs. post-quiz score.
+- **No router.** `AppContext` holds `screen`; `App.tsx` renders one screen
+  component. `showScreen()` reproduces the original 180ms fade.
+- **7 screens:** Home, Upload, Loading, PreQuiz, Summary, Quiz, Compare.
+- **EN/ES i18n:** `frontend/src/i18n/translations.ts` holds the `TRANSLATIONS`
+  dict copied verbatim from `index.html`; `useTranslation()` binds it to the
+  active language.
+- **All AI calls go frontend → backend → OpenRouter.** The frontend
+  (`src/lib/api.ts`) never talks to OpenRouter directly. New AI features add a
+  backend route in `src/routes/api.ts` + a helper in `src/services/openrouter.ts`.
 
-### External dependencies (CDN only)
+### Data flow
 
-- **PDF.js 3.11.174** — `pdf.min.js` + `pdf.worker.min.js` from cdnjs. Worker URL
-  must be set via `pdfjsLib.GlobalWorkerOptions.workerSrc`.
+1. User uploads a PDF/image, or clicks "Try a Sample Contract" (which does
+   `fetch('/SampleRentalAgreement.pdf')` from `frontend/public/` — no base64
+   literal any more).
+2. `AppContext.handleFile(file)` dispatches to `lib/pdf.extractPdfText()`
+   (pdfjs-dist) or `lib/image.encodeImageBase64()`.
+3. `POST /api/prequiz` generates a quiz from the raw contract text, answered
+   before the user sees any summary.
+4. `POST /api/summary` streams the plain-language summary; the backend relays
+   OpenRouter's SSE stream unchanged and `lib/api.streamSummary` parses it with
+   the same `data:` / `[DONE]` logic as the old `callOpenRouterStream`.
+   `lib/summaryStream._sumExtractPartial` drives the progressive render;
+   `lib/parseJSON.parseJSON` does the final authoritative parse.
+5. The Summary screen renders from `streamingPartial` while streaming, then from
+   `summaryData` once parsed.
+6. "Take the Quiz" → `AppContext.startQuiz()` → `POST /api/quiz` using the stored
+   summary → `lib/quiz.validateQuestions` → Quiz screen.
+7. Compare screen shows the pre-quiz vs. post-quiz score via
+   `lib/scoreCopy.comparison()`.
+
+### External dependencies
+
+- **pdfjs-dist 3.11.174** — frontend npm dependency. The worker is still loaded
+  from cdnjs (`.../pdf.js/3.11.174/pdf.worker.min.js`); set in `lib/pdfWorker.ts`.
 - **OpenRouter API** — `https://openrouter.ai/api/v1/chat/completions`, model
-  `openrouter/free`. Images use the vision `image_url` content block; PDFs use
-  plain text messages.
+  `openrouter/free`, called **only** from `backend/src/services/openrouter.ts`.
+  Images use the vision `image_url` content block; PDFs use plain text messages.
 
 ### Key implementation details
 
-- **PDF text cap:** Extracted text is capped at 12,000 characters to stay within
-  free-tier token limits.
-- **JSON parsing:** `parseJSON()` strips ` ```json ` fences first, then falls
-  back to matching the first `{...}` or `[...]` block in the response.
-- **XSS:** All API-returned strings must go through `escHtml()` before being set
-  as `innerHTML`.
-- **Quiz state:** `currentSummaryData`, `quizAnswered`, and `quizScore` are
-  module-level variables reset at the start of each `startQuiz()` call.
-- **Quiz answer format:** The API is asked to return
-  `[{ "question": "...", "options": ["A","B","C","D"], "correct": 0 }]` —
-  `correct` is a zero-based index.
+- **Parity mandate.** This app was ported from `index.html` with a strict
+  "zero visual/content/functional drift" guarantee
+  (`docs/superpowers/specs/2026-09-03-fullstack-restructure-design.md`). CSS
+  (`frontend/src/styles/global.css`), the `TRANSLATIONS` dict, markup structure,
+  and logic bodies were copied verbatim. Keep it that way — if you change
+  behavior, change it in a way that's intentional and documented, and check it
+  against `index.html`.
+- **PDF text cap:** 12,000 characters (`lib/pdf.extractPdfText`).
+- **JSON parsing:** `lib/parseJSON.parseJSON` (summary) and
+  `services/openrouter.ts` `parsePreQuizJSON` / `parseQuizJSON` (quizzes) strip
+  ` ```json ` fences, isolate the first `{...}` / `[...]` block, and tolerate
+  trailing commas — each ported from its original inline cleaner.
+- **XSS:** In `index.html`, AI strings went through `escHtml()` before
+  `innerHTML`. In the React port they're rendered as JSX text children, which
+  React escapes — equivalent. `escHtml` is kept in `lib/quiz.ts` for reference.
+  The only `dangerouslySetInnerHTML` is `prequiz-intro` (a static translation
+  string).
+- **Quiz answer format:** `[{ "question": "...", "options": ["A","B","C","D"],
+  "correct": 0 }]` — `correct` is a zero-based index. `validateQuestions` pads /
+  trims to exactly 4 options.
+- **State:** `AppContext` holds `contract`, `preQuizQuestions`/`preQuizPicks`,
+  `streamingPartial`, `summaryData`, `quizQuestions`/`quizPicks`, `error`.
+  Screen-local state resets on navigation because only the active screen mounts.
 
 ### Secrets
 
-- **Never hardcode API keys in client-shipped code.** The current `API_KEY`
-  constant in `index.html` is known tech debt (`PRD.md` P0), not a pattern to
-  copy. New backend code should read secrets from `.env` (gitignored) via
-  `process.env`, never inline.
+- **Never hardcode API keys in client-shipped code.** The key lives in
+  `backend/.env` (gitignored), read via `process.env.OPENROUTER_KEY` in
+  `backend/src/services/openrouter.ts` only. `backend/.env.example` is the
+  committed template (blank value).
+- The key currently in `backend/.env` was ported from the old client-side
+  `index.html` constant and is in git history — it should be rotated on
+  OpenRouter (`PRD.md` P0).
+- Root `.gitignore` covers `node_modules/`, `.env`, `dist/`, `build/`.
 
 ## Color Palette
 
@@ -98,3 +129,5 @@ in one file. Full details in `ARCHITECTURE.md`; summary:
 ```
 
 Risk flags use warm red tones (`#fef6f2` background, `#c95f30` left border). Correct answers use `#edf7ed` / `#6aad6a`; wrong answers use `#fef1ee` / `#d87a5a`.
+
+Defined verbatim in `frontend/src/styles/global.css` (copied from `index.html`).

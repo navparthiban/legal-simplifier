@@ -24,25 +24,54 @@ see how much your understanding actually improved.
 
 ## Tech Stack
 
-- Vanilla HTML / CSS / JavaScript — no framework, no build step.
-- [PDF.js](https://mozilla.github.io/pdf.js/) for client-side PDF text extraction.
-- [OpenRouter](https://openrouter.ai/) for the AI summary and quiz generation.
+- **Frontend** — Vite + React + TypeScript. PDF text extraction with
+  [pdfjs-dist](https://mozilla.github.io/pdf.js/).
+- **Backend** — Express + TypeScript. The only [OpenRouter](https://openrouter.ai/)
+  client; the API key never reaches the browser.
+- No database — nothing is persisted between sessions.
 
-## Running It
+## Running It Locally
 
-This project is currently a single static file with no dependencies to install.
+Two packages, started separately. You need Node 20+ and an OpenRouter API key.
 
-1. Clone the repo.
-2. Open `index.html` in a browser (or serve it with any static file server —
-   PDF.js's worker requires `http://` rather than `file://` in some browsers).
+### 1. Backend
 
-No build step, no `npm install`.
+```bash
+cd backend
+cp .env.example .env          # then edit .env and set OPENROUTER_KEY=...
+npm install
+npm run dev                   # http://localhost:8787
+```
 
-> **Note:** the app currently talks to OpenRouter directly from the browser using
-> an API key baked into the page. That key is being moved server-side — see
-> [`PRD.md`](./PRD.md) for the in-progress restructure. Until that lands, don't
-> rely on this app with a key you care about, and don't fork it with your own key
-> committed to a public repo.
+### 2. Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev                   # http://localhost:5173
+```
+
+The frontend dev server proxies `/api/*` to the backend on `:8787`, so open
+`http://localhost:5173` and the flow works end to end. To point at a backend on
+a different host, set `VITE_BACKEND_URL` before `npm run dev`.
+
+### Production build
+
+```bash
+cd backend  && npm run build && npm start      # serves the API
+cd frontend && npm run build                   # static files in frontend/dist/
+```
+
+Serve `frontend/dist/` from any static host and make sure `/api/*` reaches the
+backend (reverse proxy, or set the API base at build time).
+
+## Deployment
+
+- **Backend** → a Node web service (e.g. Render). Set `OPENROUTER_KEY` (and
+  optionally `APP_URL` for the OpenRouter `HTTP-Referer` header) via the host's
+  environment-variable UI — never commit it.
+- **Frontend** → a static site (e.g. Vercel or a Render static site), built with
+  `vite build`. Route `/api/*` to the deployed backend URL.
 
 ## Project Docs
 
@@ -50,6 +79,11 @@ No build step, no `npm install`.
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — how the code is laid out and how data
   flows through the app.
 - [`CLAUDE.md`](./CLAUDE.md) — instructions for Claude Code when working in this repo.
+
+> **Note:** the original single-file version (`index.html`, OpenRouter key baked
+> into the page) is still in the repo root as a parity reference during the
+> migration. It is not part of the running app and will be removed once the new
+> frontend/backend version is confirmed to match it.
 
 ## License
 
