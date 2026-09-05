@@ -4,6 +4,9 @@
   "description": "ClearSign frontend — React + TypeScript port of the original index.html.",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

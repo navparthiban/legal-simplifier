@@ -4,6 +4,9 @@
   "description": "ClearSign backend — proxies OpenRouter so the API key stays server-side.",
   "type": "module",
   "main": "dist/server.js",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
