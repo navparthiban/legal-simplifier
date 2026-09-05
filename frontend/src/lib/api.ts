@@ -10,6 +10,14 @@
 import type { Language } from '../i18n/translations';
 import type { Question, SummaryData } from './types';
 
+/**
+ * Backend base URL. Empty in local dev (requests stay relative, e.g.
+ * "/api/prequiz", and vite.config.ts's dev proxy forwards them to the local
+ * backend). Set VITE_API_BASE at build time to point a deployed frontend
+ * (e.g. on Netlify) at a deployed backend (e.g. on Render) — see README.md.
+ */
+const API_BASE = import.meta.env.VITE_API_BASE ?? '';
+
 async function errorFromResponse(res: Response): Promise<Error> {
   const err = await res.json().catch(() => ({}) as any);
   const msg =
@@ -26,7 +34,7 @@ interface ContractInput {
 }
 
 export async function fetchPreQuiz(input: ContractInput): Promise<Question[]> {
-  const res = await fetch('/api/prequiz', {
+  const res = await fetch(`${API_BASE}/api/prequiz`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -40,7 +48,7 @@ export async function fetchQuiz(
   summaryData: SummaryData,
   language: Language,
 ): Promise<Question[]> {
-  const res = await fetch('/api/quiz', {
+  const res = await fetch(`${API_BASE}/api/quiz`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ summaryData, language }),
@@ -56,7 +64,7 @@ export async function streamSummary(
   input: ContractInput,
   onChunk: (accumulated: string) => void,
 ): Promise<string> {
-  const res = await fetch('/api/summary', {
+  const res = await fetch(`${API_BASE}/api/summary`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),

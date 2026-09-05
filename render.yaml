@@ -1,0 +1,20 @@
+# Render Blueprint for the backend — see README.md "Deploying".
+# In Render: New -> Blueprint -> pick this repo. Render reads this file and
+# creates the service below; you'll be prompted for the envVars marked
+# `sync: false` (never store secrets in this file).
+services:
+  - type: web
+    name: clearsign-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: OPENROUTER_KEY
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false

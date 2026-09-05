@@ -52,8 +52,10 @@ npm run dev                   # http://localhost:5173
 ```
 
 The frontend dev server proxies `/api/*` to the backend on `:8787`, so open
-`http://localhost:5173` and the flow works end to end. To point at a backend on
-a different host, set `VITE_BACKEND_URL` before `npm run dev`.
+`http://localhost:5173` and the flow works end to end. To point the *dev*
+server's proxy at a backend running somewhere else, set `VITE_BACKEND_URL`
+before `npm run dev`. (That's different from `VITE_API_BASE`, below, which is
+baked into a production *build* — dev always uses the proxy.)
 
 ### Production build
 
@@ -62,16 +64,46 @@ cd backend  && npm run build && npm start      # serves the API
 cd frontend && npm run build                   # static files in frontend/dist/
 ```
 
-Serve `frontend/dist/` from any static host and make sure `/api/*` reaches the
-backend (reverse proxy, or set the API base at build time).
+Serve `frontend/dist/` from any static host. Unlike local dev, a deployed
+frontend and backend aren't on the same address, so the frontend needs to be
+told where the backend is — see `VITE_API_BASE` below.
 
-## Deployment
+## Deploying (Render + Netlify)
 
-- **Backend** → a Node web service (e.g. Render). Set `OPENROUTER_KEY` (and
-  optionally `APP_URL` for the OpenRouter `HTTP-Referer` header) via the host's
-  environment-variable UI — never commit it.
-- **Frontend** → a static site (e.g. Vercel or a Render static site), built with
-  `vite build`. Route `/api/*` to the deployed backend URL.
+The frontend is static (Netlify, Vercel, GitHub Pages, ...). The backend is a
+real Node server that has to stay running (Render, Railway, Fly.io, ...) —
+it can't run as a Netlify static site or a short-lived serverless function,
+because the AI calls are too slow/stream for that. This repo is set up for
+**Render (backend) + Netlify (frontend)**; `render.yaml` and `netlify.toml`
+at the repo root hold the config for each.
+
+**1. Backend → Render**
+- [render.com](https://render.com) → **New → Blueprint** → connect this repo.
+  Render reads `render.yaml` and creates a "clearsign-backend" web service
+  rooted at `backend/`.
+- When prompted for environment variables, set:
+  - `OPENROUTER_KEY` — your key
+  - `APP_URL` — fill in after step 2, with your Netlify URL
+  - `CORS_ORIGIN` — same as `APP_URL`, restricts who can call the API
+- Deploy, then copy the service's URL (`https://clearsign-backend-xxxx.onrender.com`).
+- *(No blueprint support? Create a Web Service manually: root directory
+  `backend`, build command `npm install && npm run build`, start command
+  `npm start`, same env vars.)*
+- Render's free tier spins down after 15 minutes idle — the first request
+  after that takes ~30–60s to wake back up. Normal, not a bug.
+
+**2. Frontend → Netlify**
+- [netlify.com](https://netlify.com) → **Add new site → Import an existing
+  project** → connect this repo. Netlify reads `netlify.toml` (base directory
+  `frontend`, build command `npm run build`, publish directory `dist`).
+- Site settings → **Environment variables** → add `VITE_API_BASE` = the Render
+  URL from step 1 (no trailing slash).
+- Deploy, then copy the site's URL (`https://your-site.netlify.app`).
+
+**3. Close the loop**
+- Back in Render, set `APP_URL` and `CORS_ORIGIN` to the Netlify URL from
+  step 2, and redeploy the backend so the CORS restriction takes effect.
+- Open the Netlify URL — that's the live app.
 
 ## Project Docs
 

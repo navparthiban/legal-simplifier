@@ -50,6 +50,8 @@ legal-simplifier/
 │   └── package.json / tsconfig*.json
 │
 ├── SampleRentalAgreement.pdf     # canonical sample (the copy in frontend/public is what ships)
+├── render.yaml                    # Render Blueprint — deploys backend/
+├── netlify.toml                   # Netlify build config — deploys frontend/
 ├── docs/superpowers/             # spec + plan for the single-file → frontend/backend port
 │   ├── specs/2026-09-03-fullstack-restructure-design.md
 │   └── plans/2026-09-03-fullstack-restructure.md
@@ -134,6 +136,20 @@ from `index.html` (`err?.error?.message` from OpenRouter, else
 Image contracts are sent as base64 data URLs in the `content` field with
 `isImage: true`; the backend forwards them in OpenRouter's vision
 `image_url` message format.
+
+## Configuration
+
+| Var | Where | Purpose |
+|---|---|---|
+| `OPENROUTER_KEY` | `backend/.env` | the only secret; never committed |
+| `PORT` | `backend/.env` | backend listen port (Render sets its own) |
+| `APP_URL` | `backend/.env` | `HTTP-Referer` sent to OpenRouter |
+| `CORS_ORIGIN` | `backend/.env` | restricts the backend to one origin; unset = any |
+| `VITE_API_BASE` | `frontend/.env` / build-time | prefixes every `/api/*` call in the **built** bundle — set this to the deployed backend's URL. Unset in local dev, where relative paths go through the Vite proxy instead |
+| `VITE_BACKEND_URL` | shell env before `npm run dev` | only affects `vite.config.ts`'s **dev-server proxy target**, not the built bundle |
+
+`render.yaml` / `netlify.toml` deploy `backend/` and `frontend/` respectively
+— see README.md "Deploying".
 
 ## Key Functions (by role)
 

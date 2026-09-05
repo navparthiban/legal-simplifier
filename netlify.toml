@@ -1,0 +1,6 @@
+# Netlify deploys the frontend only — see README.md "Deploying" for the
+# backend (Render) half and how the two are wired together.
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
