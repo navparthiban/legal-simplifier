@@ -5,8 +5,14 @@ breakdown: what each party has to do, key deadlines, rights, and risk flags wort
 a second look. It also quizzes you before and after reading the summary so you can
 see how much your understanding actually improved.
 
+**Live:** https://clearsignlegalsimplifier.netlify.app
+
 > ⚠️ **Not legal advice.** ClearSign is an educational tool that helps you understand
 > a contract in plain English. It does not replace a lawyer.
+
+> The backend runs on Render's free tier, which sleeps after 15 minutes idle —
+> the first contract you analyze after a quiet spell may take ~30–60s while it
+> wakes up, then it's fast.
 
 ## Features
 

@@ -8,11 +8,18 @@ whenever scope changes — don't let it drift out of sync with reality the way
 
 ClearSign is a **`frontend/` (Vite + React + TypeScript) + `backend/`
 (Express + TypeScript)** app. The backend is the only OpenRouter client and
-reads the API key from `backend/.env`. It was ported screen-by-screen from the
-original single-file `index.html` (now removed) with a zero-drift parity
-guarantee — see `docs/superpowers/`.
+reads the API key from an environment variable (`backend/.env` locally). It was
+ported screen-by-screen from the original single-file `index.html` (now removed)
+with a zero-drift parity guarantee — see `docs/superpowers/`.
 
 No persistence, no accounts — same as before.
+
+**Deployed:**
+- Frontend → Netlify (static build of `frontend/`), config in `netlify.toml`.
+- Backend → Render (Node web service running `backend/`), config in
+  `render.yaml`. Free tier, so it cold-starts (~30–60s) after 15 min idle.
+- The two are wired by `VITE_API_BASE` (frontend build → backend URL) and
+  `CORS_ORIGIN` (backend → only accepts the Netlify origin).
 
 **Working today:**
 - Upload flow (drag-and-drop or browse) for PDF and image contracts.
@@ -30,11 +37,6 @@ No persistence, no accounts — same as before.
 
 Roughly ordered by severity.
 
-- **P0 — Rotate the previously-committed OpenRouter key.** The key that used to
-  be hardcoded in `index.html` is in git history and now lives in
-  `backend/.env`. It is no longer shipped to the browser, but anyone with the
-  git history has it, so it must be rotated on OpenRouter and the new value put
-  in `backend/.env` (and the deploy host's env vars) only.
 - **P1 — Free-tier model reliability.** `openrouter/free` is used for all AI calls.
   Free-tier models can be slow, rate-limited, or produce malformed JSON — the app
   has fallback parsing (`parseJSON`) but no retry/backoff strategy.
@@ -50,14 +52,15 @@ Roughly ordered by severity.
 ### P0 — Done
 - [x] Split `index.html` into a proper frontend/backend structure
       (`frontend/` Vite + React + TS, `backend/` Express + TS).
-- [x] Move the OpenRouter API key into a server-side `.env` file, proxied
-      through backend endpoints. `.env` is gitignored; `.env.example` committed.
+- [x] Move the OpenRouter API key server-side (env var, read only in
+      `backend/src/services/openrouter.ts`). `.env` gitignored; `.env.example`
+      committed blank.
 - [x] Verify the new app matches `index.html` screen-by-screen (EN + ES, sample
       path, full flow); `index.html` removed.
-
-### P0 — Open
-- [ ] Rotate the OpenRouter key that was previously committed to git history
-      and put the new value in `backend/.env` + the deploy host's env vars only.
+- [x] Rotate the OpenRouter key that was previously committed in `index.html`.
+      The old key is disabled — the copy still in git history is now a dead
+      string. The new key exists only in `backend/.env` and the Render dashboard.
+- [x] Deploy: frontend on Netlify, backend on Render.
 
 ### P1 — Next
 - [x] Stop embedding the sample contract as a base64 JS literal — it is now

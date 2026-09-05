@@ -1,7 +1,10 @@
 # ARCHITECTURE.md
 
 Living doc — kept in sync with the actual file layout as the project changes.
-Last verified against the codebase: 2026-09-03.
+Last verified against the codebase: 2026-09-05.
+
+Deployed: frontend on Netlify, backend on Render (see "Configuration" below and
+README.md "Deploying").
 
 > **History:** this app used to be a single `index.html` (HTML + CSS + JS, with
 > the OpenRouter key hardcoded client-side). It was replaced by the
