@@ -5,7 +5,9 @@ export function Footer() {
   const { t } = useTranslation();
   return (
     <footer>
-      &copy; 2026 ClearSign &mdash; <span>{t('footer-disclaimer')}</span>
+      <span className="foot-mark">ClearSign</span>
+      <span>&copy; 2026</span>
+      <span>{t('footer-disclaimer')}</span>
     </footer>
   );
 }

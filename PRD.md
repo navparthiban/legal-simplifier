@@ -68,6 +68,29 @@ Roughly ordered by severity.
 - [ ] Add a retry/backoff for AI calls that return malformed JSON or hit rate
       limits.
 
+### Design rework (post-parity)
+
+The 1:1 port is done; the UI is now being redesigned deliberately. Direction —
+*a trustworthy reader marking up your contract*: dull document paper resolving
+into a clear plain-language sheet, set as a centered editorial column. New
+palette + type tokens and web fonts (Newsreader / Libre Franklin) live in
+`global.css`.
+
+- [x] Home screen + shared shell (`Nav`, `Footer`, tokens, fonts).
+- [x] Upload screen.
+- [x] Loading screen.
+- [x] PreQuiz screen.
+- [x] Summary screen (incl. streaming skeleton / risk flags).
+- [x] Quiz screen.
+- [x] Compare screen.
+- [x] EN copy sweep to sentence case for headings and primary labels.
+- [ ] Retire the legacy token aliases (`--bg`, `--navy`, …) — mechanical
+      find-and-replace across the now-reworked screen rules.
+- [ ] Accessibility pass on quiz/upload (see P2) — `:focus-visible` and
+      `prefers-reduced-motion` are handled; ARIA/labels still unaudited.
+- [ ] `disclaimer-wrap` label text on the Upload screen is still hardcoded
+      English — move it into `TRANSLATIONS`.
+
 ### P2 — Later
 - [ ] Basic automated tests (at minimum: `parseJSON`, `escHtml`, quiz scoring,
       the `_sum*` streaming extractors, `scoreCopy.comparison`). The split makes

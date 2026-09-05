@@ -1,7 +1,7 @@
 # ARCHITECTURE.md
 
 Living doc — kept in sync with the actual file layout as the project changes.
-Last verified against the codebase: 2026-09-05.
+Last verified against the codebase: 2026-09-05 (Home + shell visual rework).
 
 Deployed: frontend on Netlify, backend on Render (see "Configuration" below and
 README.md "Deploying").
@@ -12,6 +12,17 @@ README.md "Deploying").
 > The CSS, the `TRANSLATIONS` dict, the markup, and the logic in `frontend/`
 > were copied verbatim from that file — see `docs/superpowers/` for the spec,
 > plan, and the parity guarantee that governed the port.
+>
+> **Design rework:** the parity phase is over and the visual design has been
+> reworked deliberately. Direction — *a trustworthy reader marking up your
+> contract*: dull document paper resolving into a clear plain-language sheet,
+> set as a centered editorial column in Newsreader + Libre Franklin, hairline
+> rules, one signature-blue accent, warm red reserved for risk. **All seven
+> screens + the shared shell are done.** The markup is largely unchanged; the
+> restyle lives in `global.css` — design tokens in `:root`, then Home, then a
+> shared inner-screen system (back link, headings, kicker, buttons) reused by
+> Upload / Loading / PreQuiz / Summary / Quiz / Compare. The legacy token
+> aliases (`--bg`, `--navy`, …) are still defined but now just a convenience.
 
 ## File Layout
 
@@ -32,7 +43,7 @@ legal-simplifier/
 │   ├── src/
 │   │   ├── main.tsx              # React root, imports global.css, wraps <App> in <AppProvider>
 │   │   ├── App.tsx              # <Nav> + current screen + <Footer>
-│   │   ├── styles/global.css    # the entire original <style> block, verbatim
+│   │   ├── styles/global.css    # design tokens + all screen styles (Home + shell reworked; rest ported)
 │   │   ├── i18n/
 │   │   │   ├── translations.ts  # TRANSLATIONS dict verbatim + translate()/tStr()/tArr()
 │   │   │   └── useTranslation.ts# hook binding t()/tArr() to the active language
@@ -73,7 +84,7 @@ from `index.html`.
 
 | Screen | Purpose |
 |---|---|
-| `Home` | Landing — hero, feature cards |
+| `Home` | Landing — centered column: hero statement, the "The contract says → In plain terms" annotation device, and the "What you get" ledger rows |
 | `Upload` | Disclaimer-gated drag-and-drop / browse, "Try a Sample Contract", error banner |
 | `Loading` | Spinner + label during extraction and the first API call |
 | `PreQuiz` | 5 questions from the **raw contract text**, before the summary |
@@ -192,22 +203,38 @@ and the comparison delta branching.
 
 - **pdfjs-dist 3.11.174** (frontend npm dep). Worker still loaded from
   `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`.
+- **Google Fonts** — Newsreader + Libre Franklin, `<link>`ed in
+  `frontend/index.html` (preconnect + one stylesheet).
 - **React 18 / Vite 5** (frontend), **Express 4** (backend), TypeScript on both.
 - **OpenRouter API** — `https://openrouter.ai/api/v1/chat/completions`, model
   `openrouter/free`, called from the backend only.
 
 ## Color Palette
 
+Design tokens (`:root` in `frontend/src/styles/global.css`):
+
 ```css
---bg:      #f5f0e8;   /* warm beige page background */
---surface: #faf7f2;   /* card / nav surface */
---navy:    #1c2b3a;
---blue:    #2d5f8a;
---text:    #2c3a47;
---muted:   #7a8694;
---border:  #e3ddd4;
+--paper:      #edece5;   /* dull document stock — page background */
+--clear:      #ffffff;   /* the "explained" surface — a fresh sheet */
+--ink:        #1b1a17;   /* warm near-black — headings & body */
+--ink-soft:   #5c5a52;   /* secondary text */
+--rule:       #d7d5cb;   /* hairlines, ruled-pad lines */
+--signature:  #28407a;   /* the one accent — pen-blue */
+--flag:       #c13b24;   /* risk only */
 ```
 
-Risk flags use warm red tones (`#fef6f2` background, `#c95f30` left border).
+The legacy names the not-yet-reworked screens still use are aliased onto these:
+`--bg → --paper`, `--surface → --clear`, `--navy/--text → --ink`,
+`--blue → --signature`, `--muted → --ink-soft`, `--border → --rule`.
+
 Correct quiz answers use `#edf7ed` / `#6aad6a`; wrong answers use
-`#fef1ee` / `#d87a5a`. All defined verbatim in `frontend/src/styles/global.css`.
+`#fef1ee` / `#d87a5a` (unchanged, in the ported screen styles).
+
+## Typography
+
+Two web fonts, loaded from Google Fonts in `frontend/index.html`:
+
+- **Newsreader** — display headings and the "voice" of quoted legalese (italic).
+- **Libre Franklin** — body, UI, labels (the plain-language voice).
+
+Exposed as `--font-display` / `--font-sans`.

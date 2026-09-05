@@ -80,13 +80,18 @@ Full details in `ARCHITECTURE.md`. Summary:
 
 ### Key implementation details
 
-- **Parity mandate.** This app was ported from the old single-file `index.html`
-  with a strict "zero visual/content/functional drift" guarantee
-  (`docs/superpowers/specs/2026-09-03-fullstack-restructure-design.md`). CSS
-  (`frontend/src/styles/global.css`), the `TRANSLATIONS` dict, markup structure,
-  and logic bodies were copied verbatim. Keep it that way — if you change
-  behavior, make it intentional and documented. The original is recoverable
-  from git history if you need to check something.
+- **Parity mandate (now lifted for visual design).** This app was ported from
+  the old single-file `index.html` with a strict "zero visual/content/functional
+  drift" guarantee
+  (`docs/superpowers/specs/2026-09-03-fullstack-restructure-design.md`). That
+  parity phase is **complete**. The **visual design has been reworked
+  deliberately** — direction: *a trustworthy reader marking up your contract*,
+  a centered editorial column in Newsreader + Libre Franklin, hairline rules,
+  one signature-blue accent, warm red for risk only. All seven screens + the
+  shared shell are done (see `ARCHITECTURE.md`). Still keep **logic and
+  data-flow** behavior stable unless a change is intentional and documented;
+  the `TRANSLATIONS` dict is now editable but keep EN and ES in sync. The
+  original is recoverable from git history.
 - **PDF text cap:** 12,000 characters (`lib/pdf.extractPdfText`).
 - **JSON parsing:** `lib/parseJSON.parseJSON` (summary) and
   `services/openrouter.ts` `parsePreQuizJSON` / `parseQuizJSON` (quizzes) strip
@@ -116,16 +121,22 @@ Full details in `ARCHITECTURE.md`. Summary:
 
 ## Color Palette
 
+Design tokens in `frontend/src/styles/global.css` `:root` (see `ARCHITECTURE.md`
+→ Color Palette / Typography for the full list and rationale):
+
 ```css
---bg:      #f5f0e8;   /* warm beige page background */
---surface: #faf7f2;   /* card / nav surface */
---navy:    #1c2b3a;
---blue:    #2d5f8a;
---text:    #2c3a47;
---muted:   #7a8694;
---border:  #e3ddd4;
+--paper:     #edece5;   /* page background — dull document stock */
+--clear:     #ffffff;   /* the "explained" surface */
+--ink:       #1b1a17;   /* headings & body */
+--ink-soft:  #5c5a52;   /* secondary text */
+--rule:      #d7d5cb;   /* hairlines */
+--signature: #28407a;   /* the one accent — pen-blue */
+--flag:      #c13b24;   /* risk only */
 ```
 
-Risk flags use warm red tones (`#fef6f2` background, `#c95f30` left border). Correct answers use `#edf7ed` / `#6aad6a`; wrong answers use `#fef1ee` / `#d87a5a`.
+Legacy names (`--bg`, `--surface`, `--navy`, `--blue`, `--text`, `--muted`,
+`--border`) are aliased onto these for the screens not yet reworked. Correct
+quiz answers use `#edf7ed` / `#6aad6a`; wrong answers `#fef1ee` / `#d87a5a`.
 
-Defined verbatim in `frontend/src/styles/global.css` (copied from `index.html`).
+Fonts: **Newsreader** (display) + **Libre Franklin** (body), via Google Fonts
+in `frontend/index.html`, exposed as `--font-display` / `--font-sans`.

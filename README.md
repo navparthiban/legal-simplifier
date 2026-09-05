@@ -31,7 +31,8 @@ see how much your understanding actually improved.
 ## Tech Stack
 
 - **Frontend** — Vite + React + TypeScript. PDF text extraction with
-  [pdfjs-dist](https://mozilla.github.io/pdf.js/).
+  [pdfjs-dist](https://mozilla.github.io/pdf.js/). Type set in Newsreader +
+  Libre Franklin (Google Fonts); design tokens in `frontend/src/styles/global.css`.
 - **Backend** — Express + TypeScript. The only [OpenRouter](https://openrouter.ai/)
   client; the API key never reaches the browser.
 - No database — nothing is persisted between sessions.
