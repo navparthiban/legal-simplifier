@@ -72,6 +72,9 @@ Roughly ordered by severity.
   use more AI quota than text; there is no OCR, so a scan is only as readable as the model
   finds the page image. Image requests were only exercised against Gemini; the OpenRouter
   vision fallback has not been tried with multi-page input.
+- **P2 — Error detail is not shown.** User-facing errors are translated headlines only;
+  the server's specific (English) reason goes to the browser console. If support ever
+  needs it, add a small translated "details" disclosure.
 - **P2 — No persistence.** Nothing is saved between sessions — re-uploading a
   contract re-runs the full AI pipeline and costs tokens again.
 - **P2 — Accessibility unaudited.** No explicit ARIA/keyboard-nav pass has been
@@ -127,8 +130,12 @@ palette + type tokens and web fonts (Newsreader / Libre Franklin) live in
       find-and-replace across the now-reworked screen rules.
 - [ ] Accessibility pass on quiz/upload (see P2) — `:focus-visible` and
       `prefers-reduced-motion` are handled; ARIA/labels still unaudited.
-- [ ] `disclaimer-wrap` label text on the Upload screen is still hardcoded
-      English — move it into `TRANSLATIONS`.
+- [x] `disclaimer-wrap` label, the "or" divider and the sample button on the Upload
+      screen moved into `TRANSLATIONS` (EN + ES). Swept the rest of the frontend for
+      hardcoded English: quiz filler option, error messages, `<html lang>`.
+- [x] Replace `window.alert` with the in-page `<ErrorBanner/>` (translated, with the
+      retry control next to it). This also fixes a quiz failure that set an error
+      nobody could see, and a stuck loading screen when a request failed instantly.
 
 ### P2 — Later
 - [ ] Basic automated tests (at minimum: `parseJSON`, `escHtml`, quiz scoring,

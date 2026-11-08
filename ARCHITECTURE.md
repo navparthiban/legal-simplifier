@@ -54,13 +54,14 @@ legal-simplifier/
 │   │   │   ├── api.ts           # fetch wrappers → backend (prequiz / summary stream / quiz) + wakeBackend()
 │   │   │   ├── pdf.ts           # readPdf: text (50k-char cap) or, for scans, page JPEGs (8-page cap)
 │   │   │   ├── pdfWorker.ts     # sets pdfjs workerSrc to the cdnjs 3.11.174 worker
-│   │   │   ├── image.ts         # encodeImageBase64 — verbatim
+│   │   │   ├── errors.ts        # UserError(key): an error whose message is a translation key
+│   │   │   ├── image.ts         # encodeImageBase64
 │   │   │   ├── parseJSON.ts     # final summary JSON parse — verbatim
 │   │   │   ├── summaryStream.ts # _sumPartialStr / _sumCompleteArr / _sumExtractPartial — verbatim
 │   │   │   ├── quiz.ts          # validateQuestions, escHtml — verbatim
 │   │   │   ├── scoreCopy.ts     # pre-quiz / quiz / comparison copy logic — verbatim
 │   │   │   └── types.ts         # Question, SummaryData, StreamingPartial
-│   │   ├── components/          # Nav, Footer, Screen, QuizQuestion, SummaryLists, TruncationNote
+│   │   ├── components/          # Nav, Footer, Screen, QuizQuestion, SummaryLists, TruncationNote, ErrorBanner
 │   │   └── screens/             # Home, Upload, Loading, PreQuiz, Summary, Quiz, Compare
 │   ├── vite.config.ts           # dev proxy: /api and /health → http://localhost:8787
 │   └── package.json / tsconfig*.json
@@ -235,6 +236,19 @@ summary while the user answers the pre-quiz) and `runQuiz` (starts when the summ
 finishes). Stale results are dropped via a generation counter (`genRef`) and
 `AbortController`s, so a new upload or language change can't show an old result.
 
+**Errors** — no `window.alert`. Every user-facing failure is shown in-page by
+`<ErrorBanner/>` (the `.error-banner` style) on the screen where the retry control lives:
+Upload (bad/unreadable file, sample failed, pre-quiz failed, server unreachable),
+PreQuiz above "See summary" (summary failed), Summary above "Take the quiz" (quiz
+failed). `lib/pdf.ts` / `lib/image.ts` throw `UserError(key)`; `AppContext.errorKeyFor`
+maps `UserError` → its key, a fetch `TypeError` → `err-network`, anything else → the
+flow's fallback key (`err-generic`, `err-prequiz`, `err-summary`, `err-quiz`). The raw
+server message is only `console.error`-ed (it's English, so it isn't shown in the UI).
+The `err-*` keys live in `TRANSLATIONS` in both languages. `showScreen` also cancels a
+pending swap when asked for the screen it's already on, so a request that fails
+before its fade finishes can't strand the user on the loading screen.
+`document.documentElement.lang` follows the active language.
+
 **File input** — `lib/pdf.readPdf` (pdfjs-dist): `MAX_TEXT_CHARS = 50_000`,
 scan detection `SCAN_AVG_CHARS_PER_PAGE = 40` (judged by the per-page average so a
 "Scanned with …" footer or page numbers don't hide a scan), `MAX_SCAN_PAGES = 8`,
@@ -259,7 +273,9 @@ and the comparison delta branching.
   final `summaryData` is parsed.
 - `summaryData` — the parsed summary, reused to generate the post-reading quiz.
 - `quizQuestions` / `quizPicks` — same shape as the pre-quiz; `quizScore` derived.
-- `error` — the upload-screen error banner text.
+- `error` — a **translation key** (e.g. `err-summary`), not a sentence. `<ErrorBanner/>`
+  renders `t(error)` so the message follows the language toggle. Cleared whenever the
+  user navigates to a different screen and at the start of every retry.
 - Background-generation refs (not React state; nothing renders from them):
   `summaryStatus` / `quizStatus` (`idle|running|done|error`), `summaryHasText`,
   `summaryLang` / `quizLang`, `genRef`, the two `AbortController`s, and the

@@ -1,6 +1,7 @@
 import { Screen } from '../components/Screen';
 import { RiskList, SummaryList } from '../components/SummaryLists';
 import { TruncationNote } from '../components/TruncationNote';
+import { ErrorBanner } from '../components/ErrorBanner';
 import { useApp } from '../state/AppContext';
 import { useTranslation } from '../i18n/useTranslation';
 import type { PartialStr } from '../lib/types';
@@ -132,6 +133,7 @@ export function Summary() {
           <p className="quiz-cta-label">{t('sum-cta-label')}</p>
           <h3>{t('sum-cta-h3')}</h3>
           <p>{t('sum-cta-p')}</p>
+          <ErrorBanner />
           <button className="btn-quiz" onClick={() => void startQuiz()}>
             <svg
               xmlns="http://www.w3.org/2000/svg"

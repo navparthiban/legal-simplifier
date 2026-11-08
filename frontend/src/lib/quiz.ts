@@ -9,8 +9,9 @@
  */
 import type { Question } from './types';
 
-export function validateQuestions(questions: any[]): Question[] {
-  const PLACEHOLDER = 'Not stated in the contract';
+/** `placeholder` is the (translated) filler used to pad to 4 options. */
+export function validateQuestions(questions: any[], placeholder: string): Question[] {
+  const PLACEHOLDER = placeholder;
   return questions
     .filter(
       (q) =>

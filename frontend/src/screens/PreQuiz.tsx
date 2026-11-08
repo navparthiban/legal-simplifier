@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Screen } from '../components/Screen';
 import { QuizQuestion } from '../components/QuizQuestion';
 import { TruncationNote } from '../components/TruncationNote';
+import { ErrorBanner } from '../components/ErrorBanner';
 import { useApp } from '../state/AppContext';
 import { useTranslation } from '../i18n/useTranslation';
 import { preQuizResult } from '../lib/scoreCopy';
@@ -99,6 +100,7 @@ export function PreQuiz() {
               <p className="score-message" id="prequizScoreMessage">
                 {message}
               </p>
+              <ErrorBanner />
               <button className="btn-see-summary" onClick={() => void loadSummary()}>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Screen } from '../components/Screen';
+import { ErrorBanner } from '../components/ErrorBanner';
 import { useApp } from '../state/AppContext';
 import { useTranslation } from '../i18n/useTranslation';
 
@@ -14,7 +15,7 @@ import { useTranslation } from '../i18n/useTranslation';
  * it. Preserved for parity.)
  */
 export function Upload() {
-  const { showScreen, handleFile, loadSampleContract, error } = useApp();
+  const { showScreen, handleFile, loadSampleContract } = useApp();
   const { t } = useTranslation();
   const [accepted, setAccepted] = useState(false);
   const [dragover, setDragover] = useState(false);
@@ -43,11 +44,7 @@ export function Upload() {
           <p>{t('upload-p')}</p>
         </div>
 
-        {error && (
-          <div id="errorBanner" className="error-banner visible">
-            {error}
-          </div>
-        )}
+        <ErrorBanner />
 
         <div className="disclaimer-wrap" onClick={() => setAccepted((a) => !a)}>
           <input
@@ -58,8 +55,7 @@ export function Upload() {
             onChange={(e) => setAccepted(e.target.checked)}
           />
           <label htmlFor="disclaimerCheck">
-            I understand that this app is not a substitute for professional legal advice and that the
-            analysis provided should not be relied upon as such.
+            {t('upload-disclaimer')}
           </label>
         </div>
 
@@ -131,7 +127,7 @@ export function Upload() {
         </div>
 
         <div className="sample-row">
-          <span className="sample-divider">or</span>
+          <span className="sample-divider">{t('upload-or')}</span>
           <button
             className="btn-sample"
             id="btnSample"
@@ -151,7 +147,7 @@ export function Upload() {
                 d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"
               />
             </svg>
-            Try a sample contract
+            {t('upload-sample-btn')}
           </button>
         </div>
       </div>

@@ -8,13 +8,14 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { translate, type Language } from '../i18n/translations';
+import { translate, tStr, type Language } from '../i18n/translations';
 import { fetchPreQuiz, fetchQuiz, streamSummary } from '../lib/api';
 import { readPdf } from '../lib/pdf';
 import { encodeImageBase64 } from '../lib/image';
 import { parseJSON } from '../lib/parseJSON';
 import { _sumExtractPartial } from '../lib/summaryStream';
 import { validateQuestions } from '../lib/quiz';
+import { UserError } from '../lib/errors';
 import type { Question, StreamingPartial, SummaryData, Truncation } from '../lib/types';
 
 export type ScreenName =
@@ -47,9 +48,10 @@ interface AppState {
   language: Language;
   setLanguage: (lang: Language) => void;
 
-  // upload-screen error banner
+  // in-page error banner (<ErrorBanner/>). `error` is a TRANSLATION KEY, so the
+  // message follows the language toggle.
   error: string | null;
-  showError: (msg: string) => void;
+  showError: (key: string) => void;
   hideError: () => void;
 
   // loading screen
@@ -97,6 +99,10 @@ export function useApp(): AppState {
   if (!ctx) throw new Error('useApp must be used within <AppProvider>');
   return ctx;
 }
+
+/** Which translation key explains this failure to the user. */
+const errorKeyFor = (err: unknown, fallback: string): string =>
+  err instanceof UserError ? err.key : err instanceof TypeError ? 'err-network' : fallback;
 
 const scoreOf = (questions: Question[] | null, picks: (number | null)[]) =>
   (questions ?? []).reduce(
@@ -151,6 +157,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const title = translate(language, 'page-title');
     if (typeof title === 'string') document.title = title;
+    document.documentElement.lang = language; // screen readers / browser translation
   }, [language]);
 
   const t = useCallback(
@@ -163,9 +170,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const showScreen = useCallback((name: ScreenName) => {
     if (name === screenRef.current) {
+      // Already here. Cancel any swap still pending from a request that failed
+      // before its fade finished (otherwise the user ends up on a stuck
+      // loading screen right after the error appears).
+      if (fadeTimer.current) {
+        clearTimeout(fadeTimer.current);
+        fadeTimer.current = null;
+      }
       setScreenVisible(true);
       return;
     }
+    setError(null); // an error belongs to the screen it was raised for
     if (fadeTimer.current) clearTimeout(fadeTimer.current);
     // fade current out, then swap + fade in (index.html showScreen FADE dance)
     setScreenVisible(false);
@@ -177,7 +192,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setLanguage = useCallback((lang: Language) => setLanguageState(lang), []);
-  const showError = useCallback((msg: string) => setError(msg), []);
+  const showError = useCallback((key: string) => setError(key), []);
   const hideError = useCallback(() => setError(null), []);
 
   const resetQuiz = useCallback(() => {
@@ -200,11 +215,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         const questions = await fetchQuiz(summary, lang, ctrl.signal);
         if (stale()) return;
-        setQuizQuestions(validateQuestions(questions));
+        setQuizQuestions(validateQuestions(questions, tStr(lang, 'quiz-option-placeholder')));
         setQuizPicks([]);
         quizStatus.current = 'done';
       } catch (err) {
         if (stale()) return;
+        console.error('Quiz generation failed:', err);
         quizStatus.current = 'error';
         quizHooks.current?.onError(err as Error);
       }
@@ -259,6 +275,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         void runQuiz(summary, lang, gen);
       } catch (err) {
         if (stale()) return;
+        console.error('Summary generation failed:', err);
         setStreamingPartial(null);
         summaryStatus.current = 'error';
         summaryHooks.current?.onError(err as Error);
@@ -282,6 +299,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       summaryHooks.current = null;
       quizHooks.current = null;
 
+      let failKey = 'err-generic';
       try {
         setLoadingLabel(t('loading-reading'));
         let content: string | string[];
@@ -302,7 +320,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           content = await encodeImageBase64(file);
           isImage = true;
         } else {
-          throw new Error('Unsupported file type. Please upload a PDF or image.');
+          throw new UserError('err-unsupported-file');
         }
 
         const c: Contract = { fileName: file.name, content, isImage, truncation };
@@ -312,16 +330,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         resetQuiz();
 
         setLoadingLabel(t('loading-quiz'));
+        failKey = 'err-prequiz';
         const questions = await fetchPreQuiz({ content, isImage, language });
 
-        setPreQuizQuestions(validateQuestions(questions));
+        setPreQuizQuestions(validateQuestions(questions, t('quiz-option-placeholder')));
         setPreQuizPicks([]);
         showScreen('prequiz');
         // Start the summary now, while the user answers the pre-quiz.
         void runSummary(c, language, null);
       } catch (err) {
+        console.error('Could not process the contract:', err);
         showScreen('upload');
-        showError((err as Error).message || 'Something went wrong. Please try again.');
+        showError(errorKeyFor(err, failKey));
       }
     },
     [hideError, showScreen, t, language, resetQuiz, showError, runSummary],
@@ -333,13 +353,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     let file: File;
     try {
       const res = await fetch('/SampleRentalAgreement.pdf');
-      if (!res.ok) throw new Error('fetch failed');
+      if (!res.ok) throw new Error('fetch failed'); // internal: shown as err-sample
       const blob = await res.blob();
       file = new File([blob], 'SampleRentalAgreement.pdf', { type: 'application/pdf' });
       if (!file || file.size === 0) throw new Error('Sample file is empty.');
     } catch {
       showScreen('upload');
-      showError('Could not load the sample contract. Please try again.');
+      showError('err-sample');
       return;
     }
     await handleFile(file);
@@ -350,6 +370,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Failed (or language changed since it started) → try again now.
   const loadSummary = useCallback(async () => {
     if (!contract) return;
+    hideError(); // a retry starts clean
 
     const status = summaryStatus.current;
     const sameLang = summaryLang.current === language;
@@ -371,10 +392,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (!shown) showScreen('summary');
       },
       onError: (err) => {
+        // Back to the pre-quiz, where "See summary" is the retry.
         showScreen('prequiz');
-        window.alert(
-          'Could not generate the summary. Please try again.\n\n' + (err.message || ''),
-        );
+        showError(errorKeyFor(err, 'err-summary'));
       },
     };
 
@@ -383,19 +403,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } else {
       void runSummary(contract, language, hooks);
     }
-  }, [contract, showScreen, t, language, runSummary]);
+  }, [contract, hideError, showScreen, showError, t, language, runSummary]);
 
   // ── Flow: summary → quiz ──────────────────────────────────────────────────
   const startQuiz = useCallback(
     async (opts?: { fresh?: boolean }) => {
       if (!summaryData) return;
+      hideError(); // a retry starts clean
       const status = quizStatus.current;
       const sameLang = quizLang.current === language;
 
       quizHooks.current = {
         onError: (err) => {
+          // Back to the summary, where "Take the quiz" is the retry.
           showScreen('summary');
-          showError(err.message || 'Could not generate quiz questions. Please try again.');
+          showError(errorKeyFor(err, 'err-quiz'));
         },
       };
 
@@ -413,7 +435,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       showScreen('quiz');
       void runQuiz(summaryData, language, genRef.current);
     },
-    [summaryData, resetQuiz, showScreen, language, showError, runQuiz],
+    [summaryData, hideError, resetQuiz, showScreen, language, showError, runQuiz],
   );
 
   // ── Answer handlers ───────────────────────────────────────────────────────

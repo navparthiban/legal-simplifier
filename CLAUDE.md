@@ -122,8 +122,12 @@ Full details in `ARCHITECTURE.md`. Summary:
   "correct": 0 }]` — `correct` is a zero-based index. `validateQuestions` pads /
   trims to exactly 4 options.
 - **State:** `AppContext` holds `contract`, `preQuizQuestions`/`preQuizPicks`,
-  `streamingPartial`, `summaryData`, `quizQuestions`/`quizPicks`, `error`.
-  Screen-local state resets on navigation because only the active screen mounts.
+  `streamingPartial`, `summaryData`, `quizQuestions`/`quizPicks`, `error` (a translation
+  *key*, shown by `<ErrorBanner/>`). Screen-local state resets on navigation because only
+  the active screen mounts.
+- **Errors & copy rules:** never use `window.alert`; show failures through
+  `<ErrorBanner/>` with an `err-*` key (throw `UserError(key)` from `lib/`). No hardcoded
+  English in the UI — every visible string goes through `TRANSLATIONS` in both EN and ES.
 
 ### Secrets
 

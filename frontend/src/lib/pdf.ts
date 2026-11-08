@@ -12,6 +12,7 @@
  *    far under the backend's 15 MB body limit.
  */
 import { pdfjsLib } from './pdfWorker';
+import { UserError } from './errors';
 
 export const MAX_TEXT_CHARS = 50_000;
 export const MAX_SCAN_PAGES = 8;
@@ -54,7 +55,7 @@ async function renderPageToJpeg(page: any): Promise<string> {
   canvas.width = Math.floor(viewport.width);
   canvas.height = Math.floor(viewport.height);
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Could not prepare the scanned pages. Please try again.');
+  if (!ctx) throw new UserError('err-scan-prepare');
   // JPEG has no alpha channel — without a white fill, transparent areas turn black.
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -102,7 +103,7 @@ export async function readPdf(file: File): Promise<PdfResult> {
   }
 
   if (images.length === 0) {
-    throw new Error('No readable text found in this PDF. Try uploading an image instead.');
+    throw new UserError('err-no-text');
   }
   return {
     kind: 'images',
