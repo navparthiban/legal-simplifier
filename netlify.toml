@@ -4,3 +4,7 @@
   base = "frontend"
   command = "npm run build"
   publish = "dist"
+
+# Pin the Node version Netlify builds with (netlify.toml overrides the dashboard).
+[build.environment]
+  NODE_VERSION = "24"

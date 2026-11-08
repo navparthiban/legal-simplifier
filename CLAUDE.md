@@ -26,8 +26,10 @@ TypeScript)** pair. The backend is the only AI client; the API keys
 never shipped to the browser.
 
 **CI:** `.github/workflows/ci.yml` runs `npm ci`, `npm run typecheck` and
-`npm run build` for `frontend/` and `backend/` (Node 20) on every PR to `main` and push
-to `main`. It uses no secrets and makes no AI calls. `main` changes only through a pull
+`npm run build` for `frontend/` and `backend/` (Node 24, `ubuntu-24.04`) on every PR to
+`main` and push to `main`. The project requires Node 24 (`engines` `>=24`), and deploys are
+pinned to it (`NODE_VERSION = "24"` in `netlify.toml` and `render.yaml`). It uses no
+secrets and makes no AI calls. `main` changes only through a pull
 request whose `build (frontend)` and `build (backend)` checks pass (branch protection).
 
 > This app was ported from a single `index.html` (all HTML/CSS/JS in one file,

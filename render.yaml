@@ -12,6 +12,8 @@ services:
     startCommand: npm start
     healthCheckPath: /health
     envVars:
+      - key: NODE_VERSION # Render's top-priority Node setting; without it Render uses the newest Node allowed by "engines"
+        value: "24"
       - key: GEMINI_API_KEY
         sync: false
       - key: OPENROUTER_KEY

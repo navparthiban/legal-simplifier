@@ -237,6 +237,7 @@ the prompt wording is unchanged. Text-only models are skipped for image requests
 | `CORS_ORIGIN` | `backend/.env` | restricts the backend to one origin; unset = any |
 | `VITE_API_BASE` | `frontend/.env` / build-time | prefixes every `/api/*` call **and the `/health` wake-up ping** in the **built** bundle — set this to the deployed backend's URL. Unset in local dev, where relative paths go through the Vite proxy instead |
 | `VITE_BACKEND_URL` | shell env before `npm run dev` | only affects `vite.config.ts`'s **dev-server proxy target**, not the built bundle |
+| `NODE_VERSION` | `netlify.toml` `[build.environment]` / `render.yaml` `envVars` | pins the deploy Node version to `24` (matches `engines` and CI). `netlify.toml` overrides the Netlify dashboard; Render only applies the Blueprint value if the service is Blueprint-managed, otherwise set it in the service's Environment |
 
 `render.yaml` / `netlify.toml` deploy `backend/` and `frontend/` respectively
 — see README.md "Deploying".
@@ -245,9 +246,10 @@ the prompt wording is unchanged. Text-only models are skipped for image requests
 
 Runs on every pull request to `main` and every push to `main`. One job, run as a
 matrix over `frontend` and `backend` (in parallel, `fail-fast: false`): checkout →
-`actions/setup-node` (Node 20, the minimum in both `package.json` `engines`, with the npm
+`actions/setup-node` (Node 24, the minimum in both `package.json` `engines`, with the npm
 cache keyed on that package's `package-lock.json`) → `npm ci` → `npm run typecheck` →
-`npm run build`. The checks are named `build (frontend)` and `build (backend)`; those
+`npm run build`. It runs on a pinned `ubuntu-24.04` runner (not `ubuntu-latest`) and uses
+`actions/checkout@v7` / `actions/setup-node@v7`, which run on Node 24. The checks are named `build (frontend)` and `build (backend)`; those
 exact names are what branch protection on `main` requires. The workflow has read-only
 repo permissions, no secrets and no env vars, so it never touches Gemini or OpenRouter
 (typecheck and build don't start the server). A newer push to the same ref cancels the
