@@ -16,7 +16,7 @@ concurrency: # a newer push to the same PR/branch cancels the older run
 jobs:
   build:
     name: build (${{ matrix.package }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # pinned so the OS doesn't change under us when ubuntu-latest moves
     timeout-minutes: 10
     strategy:
       fail-fast: false # report both results even if one fails
@@ -26,10 +26,10 @@ jobs:
       run:
         working-directory: ${{ matrix.package }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20 # package.json "engines": ">=20" — test the minimum we promise
+          node-version: 24 # package.json "engines": ">=24" — test the minimum we promise
           cache: npm
           cache-dependency-path: ${{ matrix.package }}/package-lock.json
       - run: npm ci

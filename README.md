@@ -47,7 +47,7 @@ see how much your understanding actually improved.
 
 ## Running It Locally
 
-Two packages, started separately. You need Node 20+ and a Gemini API key
+Two packages, started separately. You need Node 24+ and a Gemini API key
 ([get one](https://aistudio.google.com/apikey)). An OpenRouter key is optional but
 recommended as the fallback.
 
@@ -89,9 +89,14 @@ told where the backend is — see `VITE_API_BASE` below.
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request to `main` and
 every push to `main`. For both `frontend/` and `backend/` it runs `npm ci`,
-`npm run typecheck` and `npm run build` on Node 20 (the minimum in `package.json`
-`engines`). It needs no API keys and never calls Gemini or OpenRouter. The two checks
-show up on a pull request as `build (frontend)` and `build (backend)`.
+`npm run typecheck` and `npm run build` on Node 24 (the minimum in `package.json`
+`engines`) on a pinned `ubuntu-24.04` runner. It needs no API keys and never calls Gemini
+or OpenRouter. The two checks show up on a pull request as `build (frontend)` and
+`build (backend)`.
+
+Deploys are pinned to the same Node version: `NODE_VERSION = "24"` in `netlify.toml` and
+in `render.yaml`'s `envVars`. If the Render service wasn't created from the Blueprint,
+set `NODE_VERSION` = `24` in its Environment settings yourself.
 
 `main` is meant to change only through a pull request whose checks pass; GitHub branch
 protection on `main` enforces this.
