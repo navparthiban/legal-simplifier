@@ -157,9 +157,8 @@ format and JSON parsers are identical for all of them.
 | `fast` | 15 s | `/api/prequiz` (user is waiting) | 3.5-flash-lite → 3.5-flash → 3.7-flash → 3.8-flash |
 | `quality` | 25 s | `/api/summary`, `/api/quiz` (run in the background) | 3.5-flash → 3.7-flash → 3.5-flash-lite → 3.8-flash |
 
-Both end with `nvidia/nemotron-3.5-super-vl:free` (reads images),
-`nvidia/nemotron-3-super-120b-a12b:free` and `dots-studio/dots-3-note-preview:free`
-(both treated as text-only).
+Both end with `nvidia/nemotron-3.5-super-vl:free` (reads images) and
+`dots-studio/dots-3-note-preview:free` (treated as text-only).
 
 - **Images:** models flagged `vision: false` are skipped for image uploads.
 - **Missing key:** a provider with no key is skipped (logged); if nothing is
@@ -169,10 +168,12 @@ Both end with `nvidia/nemotron-3.5-super-vl:free` (reads images),
   just ends (the frontend then reports a failed summary) rather than mixing
   models. SSE headers are only sent after a model commits, so a total failure is
   still a normal JSON error.
-- **Thinking level:** the `fast` chain asks Gemini for `reasoning_effort:
-  "minimal"`. If a model rejects it with a 400 that mentions thinking/reasoning
-  (gemini-3.7-flash and 3.8-flash do), the same model is retried with `"low"`,
-  then with the field omitted. The `quality` chain sends nothing (model default).
+- **Thinking level:** the `fast` chain asks Gemini for the lowest `reasoning_effort`
+  each model accepts: `"minimal"` for 3.5-flash-lite and 3.5-flash, `"low"` for
+  3.7-flash and 3.8-flash (they reject `minimal` with a 400, so they start at `low`
+  rather than wasting a call). Each model's `efforts` list is the order to try; if a
+  400 mentions thinking/reasoning, the next value is tried, finally omitting the
+  field. The `quality` chain sends nothing (model default).
 - **Logging:** each failure and the winner are printed in the backend terminal,
   e.g. `[ai] prequiz answered by gemini-3.5-flash-lite (reasoning_effort=minimal) (1.2s)`.
 

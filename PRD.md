@@ -43,11 +43,16 @@ No persistence, no accounts — same as before.
 Roughly ordered by severity.
 
 - **P1 — Model names can rot.** The chain lists exact model IDs. On 2026-11-07 every
-  Gemini ID in the chain was accepted, but `nvidia/nemotron-3-super-120b-a12b:free`
-  returned 404 ("unavailable for free"; the paid slug has no `:free`). It is skipped
-  automatically each request, but wastes a call and should be replaced once a decision
-  is made. Gemini 3.7/3.8 flash sometimes return 503 ("high demand"), which the chain
-  absorbs by moving on.
+  Gemini ID in the chain was accepted. `nvidia/nemotron-3-super-120b-a12b:free`
+  returned 404 ("unavailable for free") and has been removed from the chain. Gemini
+  3.7/3.8 flash sometimes return 503 ("high demand"), which the chain absorbs by moving
+  on. If a model ID is retired, requests will just log a failure and fall through, so
+  watch the `[ai] ... failed` lines in the backend log.
+- **P2 — gemini-3.5-flash-lite had one slow call.** It is first in the FAST chain (15s
+  limit). On 2026-11-07 one early call took ~9.9s, but 8 later calls (including a
+  quiz-sized prompt, 6 in a row) took 1.2–3.1s, so it looks like a one-off cold start.
+  Not a problem today; if pre-quizzes ever feel slow, look for lite timeouts in the
+  backend log and consider moving gemini-3.5-flash first.
 - **P1 — Mid-stream failure ends the summary.** The summary stream commits to the first
   model that sends text; if it dies partway, the user sees a failed summary and a
   retry, not a silent switch to another model.
@@ -81,7 +86,8 @@ Roughly ordered by severity.
 - [x] Replace `openrouter/free` with a Gemini → OpenRouter fallback chain (fast and
       quality orders, per-model timeouts, image-aware skipping, logging).
 - [x] Generate the summary and the post-reading quiz in the background.
-- [ ] Replace or drop `nvidia/nemotron-3-super-120b-a12b:free` (404 as of 2026-11-07).
+- [x] Drop `nvidia/nemotron-3-super-120b-a12b:free` (404 as of 2026-11-07).
+- [x] Start gemini-3.7-flash / 3.8-flash at `reasoning_effort=low` (they reject `minimal`).
 - [ ] Retry on the next model when a model answers with malformed JSON, not only
       when it errors or times out.
 

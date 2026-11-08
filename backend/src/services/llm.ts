@@ -20,13 +20,23 @@ interface ModelSpec {
   id: string;
   /** Can this model read image_url content blocks? */
   vision: boolean;
+  /** reasoning_effort values to try (lowest first) when the chain asks for low reasoning. */
+  efforts?: (string | undefined)[];
 }
 
-const gemini = (id: string): ModelSpec => ({ provider: 'gemini', id, vision: true });
+const DEFAULT_EFFORTS = ['minimal', 'low', undefined];
+const LOW_FIRST = ['low', undefined];
+
+/** 3.7/3.8 flash reject `minimal` (400), so they start at `low`. */
+const gemini = (id: string, efforts?: (string | undefined)[]): ModelSpec => ({
+  provider: 'gemini',
+  id,
+  vision: true,
+  efforts,
+});
 
 const OPENROUTER_FALLBACKS: ModelSpec[] = [
   { provider: 'openrouter', id: 'nvidia/nemotron-3.5-super-vl:free', vision: true },
-  { provider: 'openrouter', id: 'nvidia/nemotron-3-super-120b-a12b:free', vision: false },
   { provider: 'openrouter', id: 'dots-studio/dots-3-note-preview:free', vision: false },
 ];
 
@@ -47,8 +57,8 @@ const CHAINS: Record<ChainName, Chain> = {
     models: [
       gemini('gemini-3.5-flash-lite'),
       gemini('gemini-3.5-flash'),
-      gemini('gemini-3.7-flash'),
-      gemini('gemini-3.8-flash'),
+      gemini('gemini-3.7-flash', LOW_FIRST),
+      gemini('gemini-3.8-flash', LOW_FIRST),
       ...OPENROUTER_FALLBACKS,
     ],
   },
@@ -58,9 +68,9 @@ const CHAINS: Record<ChainName, Chain> = {
     lowReasoning: false,
     models: [
       gemini('gemini-3.5-flash'),
-      gemini('gemini-3.7-flash'),
+      gemini('gemini-3.7-flash', LOW_FIRST),
       gemini('gemini-3.5-flash-lite'),
-      gemini('gemini-3.8-flash'),
+      gemini('gemini-3.8-flash', LOW_FIRST),
       ...OPENROUTER_FALLBACKS,
     ],
   },
@@ -136,7 +146,8 @@ function usableModels(chain: Chain, opts: CallOptions): ModelSpec[] {
  * model rejected that value, so we step up (and finally omit it).
  */
 function effortLadder(model: ModelSpec, chain: Chain): (string | undefined)[] {
-  return chain.lowReasoning && model.provider === 'gemini' ? ['minimal', 'low', undefined] : [undefined];
+  if (!chain.lowReasoning || model.provider !== 'gemini') return [undefined];
+  return model.efforts ?? DEFAULT_EFFORTS;
 }
 
 /**
