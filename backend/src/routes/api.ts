@@ -1,11 +1,9 @@
 import { Router, type Request, type Response } from 'express';
-import { Readable } from 'node:stream';
+import { chatCompletion, chatCompletionStream } from '../services/llm.js';
 import {
   buildPreQuizMessages,
   buildQuizMessages,
   buildSummaryMessages,
-  chatCompletion,
-  chatCompletionStream,
   parsePreQuizJSON,
   parseQuizJSON,
   type Language,
@@ -32,6 +30,7 @@ api.post('/prequiz', async (req: Request, res: Response) => {
   try {
     const raw = await chatCompletion(
       buildPreQuizMessages(content, Boolean(isImage), normLanguage(language)),
+      { chain: 'fast', isImage: Boolean(isImage), label: 'prequiz' },
     );
     res.json({ questions: parsePreQuizJSON(raw) });
   } catch (err) {
@@ -48,6 +47,7 @@ api.post('/quiz', async (req: Request, res: Response) => {
   try {
     const raw = await chatCompletion(
       buildQuizMessages(summaryData as SummaryData, normLanguage(language)),
+      { chain: 'quality', isImage: false, label: 'quiz' },
     );
     res.json({ questions: parseQuizJSON(raw) });
   } catch (err) {
@@ -56,9 +56,11 @@ api.post('/quiz', async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/summary — streams the OpenRouter SSE response straight through to the
- * client, unchanged. The frontend parses the same `data: {json}` / `[DONE]`
- * format the old `callOpenRouterStream` did.
+ * POST /api/summary — streams the upstream SSE response straight through to the
+ * client, unchanged. The model chain commits to a model only once it has sent
+ * its first text, so a total failure still returns a normal JSON error here
+ * (headers are not sent until then). The frontend parses the same
+ * `data: {json}` / `[DONE]` format the old `callOpenRouterStream` did.
  */
 api.post('/summary', async (req: Request, res: Response) => {
   const { content, isImage, language } = req.body ?? {};
@@ -66,8 +68,9 @@ api.post('/summary', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Missing contract content.' });
   }
   try {
-    const upstream = await chatCompletionStream(
+    const stream = await chatCompletionStream(
       buildSummaryMessages(content, Boolean(isImage), normLanguage(language)),
+      { chain: 'quality', isImage: Boolean(isImage), label: 'summary' },
     );
 
     res.setHeader('Content-Type', 'text/event-stream');
@@ -75,17 +78,10 @@ api.post('/summary', async (req: Request, res: Response) => {
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders?.();
 
-    if (!upstream.body) {
-      res.end();
-      return;
-    }
-
-    const nodeStream = Readable.fromWeb(upstream.body as import('node:stream/web').ReadableStream);
-    nodeStream.on('error', () => res.end());
-    req.on('close', () => nodeStream.destroy());
-    nodeStream.pipe(res);
+    stream.on('error', () => res.end());
+    req.on('close', () => stream.destroy());
+    stream.pipe(res);
   } catch (err) {
-    // Headers not sent yet on this path — safe to send JSON.
     fail(res, err);
   }
 });

@@ -7,8 +7,9 @@ whenever scope changes — don't let it drift out of sync with reality the way
 ## Current State
 
 ClearSign is a **`frontend/` (Vite + React + TypeScript) + `backend/`
-(Express + TypeScript)** app. The backend is the only OpenRouter client and
-reads the API key from an environment variable (`backend/.env` locally). It was
+(Express + TypeScript)** app. The backend is the only AI client (Gemini first,
+OpenRouter `:free` models as fallback) and reads the API keys from environment
+variables (`backend/.env` locally). It was
 ported screen-by-screen from the original single-file `index.html` (now removed)
 with a zero-drift parity guarantee — see `docs/superpowers/`.
 
@@ -26,6 +27,10 @@ No persistence, no accounts — same as before.
 - PDF text extraction via PDF.js; images sent to the AI as vision input.
 - AI-generated plain-language summary (obligations / deadlines / rights / risk
   flags), streamed into the UI as it's generated.
+- Model fallback chain (fast order for the pre-quiz, quality order for the rest),
+  with the winning model logged in the backend terminal.
+- Background generation: the summary starts while the user answers the pre-quiz
+  and the post-reading quiz starts as soon as the summary finishes.
 - Pre-reading and post-reading 5-question quizzes, with a before/after score
   comparison screen.
 - EN/ES language toggle with a full UI translation dictionary.
@@ -37,9 +42,17 @@ No persistence, no accounts — same as before.
 
 Roughly ordered by severity.
 
-- **P1 — Free-tier model reliability.** `openrouter/free` is used for all AI calls.
-  Free-tier models can be slow, rate-limited, or produce malformed JSON — the app
-  has fallback parsing (`parseJSON`) but no retry/backoff strategy.
+- **P1 — Model names can rot.** The chain lists exact model IDs. On 2026-11-07 every
+  Gemini ID in the chain was accepted, but `nvidia/nemotron-3-super-120b-a12b:free`
+  returned 404 ("unavailable for free"; the paid slug has no `:free`). It is skipped
+  automatically each request, but wastes a call and should be replaced once a decision
+  is made. Gemini 3.7/3.8 flash sometimes return 503 ("high demand"), which the chain
+  absorbs by moving on.
+- **P1 — Mid-stream failure ends the summary.** The summary stream commits to the first
+  model that sends text; if it dies partway, the user sees a failed summary and a
+  retry, not a silent switch to another model.
+- **P2 — No retry/backoff within one model.** The chain moves on instead of retrying,
+  and malformed JSON from a model that *did* answer is not retried on the next model.
 - **P2 — No automated tests.** No unit tests, no end-to-end tests. Regressions are
   currently caught by hand.
 - **P2 — No persistence.** Nothing is saved between sessions — re-uploading a
@@ -65,8 +78,12 @@ Roughly ordered by severity.
 ### P1 — Next
 - [x] Stop embedding the sample contract as a base64 JS literal — it is now
       served from `frontend/public/SampleRentalAgreement.pdf` and fetched.
-- [ ] Add a retry/backoff for AI calls that return malformed JSON or hit rate
-      limits.
+- [x] Replace `openrouter/free` with a Gemini → OpenRouter fallback chain (fast and
+      quality orders, per-model timeouts, image-aware skipping, logging).
+- [x] Generate the summary and the post-reading quiz in the background.
+- [ ] Replace or drop `nvidia/nemotron-3-super-120b-a12b:free` (404 as of 2026-11-07).
+- [ ] Retry on the next model when a model answers with malformed JSON, not only
+      when it errors or times out.
 
 ### Design rework (post-parity)
 

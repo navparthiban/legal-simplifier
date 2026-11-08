@@ -1,5 +1,6 @@
 /**
- * OpenRouter client. This is the ONLY place the API key is read or sent.
+ * Prompts, message builders and response parsers. (The network calls and the
+ * model fallback chain live in ./llm.ts; the file name is historical.)
  *
  * The system prompts, the language instruction strings, the vision/text message
  * shapes, and the two array-response parsers below are ported verbatim from the
@@ -8,10 +9,6 @@
  * docs/superpowers/specs/2026-09-03-fullstack-restructure-design.md → Parity
  * Guarantee.
  */
-
-export const MODEL = 'openrouter/free';
-
-const ENDPOINT = 'https://openrouter.ai/api/v1/chat/completions';
 
 export type Language = 'en' | 'es';
 
@@ -24,7 +21,7 @@ export interface SummaryData {
   risks?: { title?: string; description?: string }[];
 }
 
-type ChatMessage =
+export type ChatMessage =
   | { role: 'system' | 'user' | 'assistant'; content: string }
   | {
       role: 'user';
@@ -189,49 +186,6 @@ export function buildQuizMessages(summaryData: SummaryData, language: Language):
     { role: 'system', content: quizSystemPrompt(language) },
     { role: 'user', content: `Here is the contract summary:\n\n${summaryTextFrom(summaryData)}` },
   ];
-}
-
-// ── Fetch wrapper ─────────────────────────────────────────────────────────────
-
-function authHeaders() {
-  const key = process.env.OPENROUTER_KEY;
-  if (!key) {
-    throw new Error('OPENROUTER_KEY is not set. Copy backend/.env.example to backend/.env and add your key.');
-  }
-  return {
-    Authorization: `Bearer ${key}`,
-    'Content-Type': 'application/json',
-    'HTTP-Referer': process.env.APP_URL || 'http://localhost:5173',
-    'X-Title': 'ClearSign',
-  };
-}
-
-/** Ported from the `if (!res.ok)` blocks in index.html — identical message. */
-async function errorFromResponse(res: Response): Promise<Error> {
-  const err = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
-  return new Error(err?.error?.message || `API error (${res.status}). Please try again.`);
-}
-
-export async function chatCompletion(messages: ChatMessage[]): Promise<string> {
-  const res = await fetch(ENDPOINT, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ model: MODEL, messages }),
-  });
-  if (!res.ok) throw await errorFromResponse(res);
-  const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  return data?.choices?.[0]?.message?.content ?? '';
-}
-
-/** Returns the raw upstream streaming response for the summary passthrough route. */
-export async function chatCompletionStream(messages: ChatMessage[]): Promise<Response> {
-  const res = await fetch(ENDPOINT, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ model: MODEL, messages, stream: true }),
-  });
-  if (!res.ok) throw await errorFromResponse(res);
-  return res;
 }
 
 // ── Response parsers (ported verbatim) ────────────────────────────────────────

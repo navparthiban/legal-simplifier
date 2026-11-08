@@ -91,7 +91,7 @@ export function Quiz() {
               <p className="score-message" id="scoreMessage">
                 {message}
               </p>
-              <button className="btn-retry" onClick={() => void startQuiz()}>
+              <button className="btn-retry" onClick={() => void startQuiz({ fresh: true })}>
                 {t('quiz-retry')}
               </button>
               <button className="btn-back-summary" onClick={() => showScreen('summary')}>

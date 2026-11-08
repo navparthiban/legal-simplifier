@@ -28,13 +28,15 @@ README.md "Deploying").
 
 ```
 legal-simplifier/
-├── backend/                       # Express + TypeScript — the only OpenRouter client
+├── backend/                       # Express + TypeScript — the only AI client (Gemini → OpenRouter chain)
 │   ├── src/
 │   │   ├── server.ts              # Express app: cors, express.json(15mb), mounts /api, :8787
 │   │   ├── routes/api.ts          # POST /api/prequiz, /api/summary (SSE passthrough), /api/quiz
-│   │   └── services/openrouter.ts # MODEL, fetch wrappers, system prompts, response parsers
-│   ├── .env                       # OPENROUTER_KEY=...  (gitignored)
-│   ├── .env.example               # OPENROUTER_KEY=     (committed, blank)
+│   │   └── services/
+│   │       ├── llm.ts             # model fallback chain: chatCompletion / chatCompletionStream, keys, timeouts, logging
+│   │       └── openrouter.ts      # system prompts, message builders, response parsers (name is historical)
+│   ├── .env                       # GEMINI_API_KEY=..., OPENROUTER_KEY=...  (gitignored)
+│   ├── .env.example               # both keys blank (committed)
 │   ├── package.json / tsconfig.json
 │
 ├── frontend/                      # Vite + React + TypeScript
@@ -111,51 +113,92 @@ AppContext.handleFile(file)
 POST /api/prequiz { content, isImage, language }
    backend: buildPreQuizMessages → chatCompletion → parsePreQuizJSON
         │  → { questions }  → validateQuestions → PreQuiz screen
-        ▼  (user answers 5 questions on the raw contract)
-AppContext.loadSummary()
+        │  PreQuiz screen appears; handleFile immediately calls runSummary()
+        │  in the background (the summary is NOT shown yet)
         ▼
-POST /api/summary { content, isImage, language }
-   backend: streams OpenRouter's SSE response straight through
-   frontend: lib/api.streamSummary reads response.body, parses `data:` /
-             `[DONE]` exactly as the old callOpenRouterStream did; each chunk
-             feeds lib/summaryStream._sumExtractPartial → Summary screen
-             renders the skeleton / stream-cursor / partial fields
-        │  on done: lib/parseJSON(accumulated) → summaryData
+POST /api/summary { content, isImage, language }          ← runs while the user
+   backend: streams the winning model's SSE response straight through   answers
+   frontend: lib/api.streamSummary reads response.body, parses `data:` /  the
+             `[DONE]` exactly as the old callOpenRouterStream did; each   pre-quiz
+             chunk feeds lib/summaryStream._sumExtractPartial →
+             `streamingPartial` state
+        │  on done: lib/parseJSON(accumulated) → summaryData, then
+        │  runQuiz() starts immediately in the background
         ▼
-AppContext.startQuiz()
+POST /api/quiz { summaryData, language }                  ← runs while the user
+   backend: buildQuizMessages → chatCompletion → parseQuizJSON   reads the summary
+        │  → { questions } → validateQuestions → `quizQuestions` state
         ▼
-POST /api/quiz { summaryData, language }
-   backend: buildQuizMessages → chatCompletion → parseQuizJSON
-        │  → { questions } → validateQuestions → Quiz screen
+User clicks "See summary" → AppContext.loadSummary()
+   · done                → Summary screen shows it at once
+   · still streaming     → Summary screen shows what's there, keeps filling in
+   · failed / lang changed → retries in the foreground (loading screen)
+User clicks "Take the Quiz" → AppContext.startQuiz()
+   · done → Quiz screen shows at once · loading → spinner until it lands
+   · failed → retries in the foreground · Retry button → always fetches fresh
         ▼
 Compare screen: lib/scoreCopy.comparison(language, preQuizScore, quizScore)
 ```
 
-The API key is read only in `backend/src/services/openrouter.ts`
-(`process.env.OPENROUTER_KEY`) and never leaves the server.
+The API keys are read only in `backend/src/services/llm.ts`
+(`process.env.GEMINI_API_KEY` / `OPENROUTER_KEY`) and never leave the server.
+
+## Model Fallback Chain (`backend/src/services/llm.ts`)
+
+Every AI call walks a list of models in order and moves to the next one if the
+current model errors, times out, or returns nothing. Gemini goes first (Google's
+OpenAI-compatible endpoint, `GEMINI_API_KEY`); OpenRouter `:free` models are the
+last resort (`OPENROUTER_KEY`). `openrouter/free` is never used. Because both
+providers speak the OpenAI chat format, the prompts, message shapes, SSE stream
+format and JSON parsers are identical for all of them.
+
+| Chain | Timeout / model | Used by | Gemini order |
+|---|---|---|---|
+| `fast` | 15 s | `/api/prequiz` (user is waiting) | 3.5-flash-lite → 3.5-flash → 3.7-flash → 3.8-flash |
+| `quality` | 25 s | `/api/summary`, `/api/quiz` (run in the background) | 3.5-flash → 3.7-flash → 3.5-flash-lite → 3.8-flash |
+
+Both end with `nvidia/nemotron-3.5-super-vl:free` (reads images),
+`nvidia/nemotron-3-super-120b-a12b:free` and `dots-studio/dots-3-note-preview:free`
+(both treated as text-only).
+
+- **Images:** models flagged `vision: false` are skipped for image uploads.
+- **Missing key:** a provider with no key is skipped (logged); if nothing is
+  usable the request fails with a message pointing at `backend/.env`.
+- **Streaming (`/api/summary`):** the timeout is *time to first text chunk*. Once
+  text arrives the model is committed to — if it dies mid-stream the response
+  just ends (the frontend then reports a failed summary) rather than mixing
+  models. SSE headers are only sent after a model commits, so a total failure is
+  still a normal JSON error.
+- **Thinking level:** the `fast` chain asks Gemini for `reasoning_effort:
+  "minimal"`. If a model rejects it with a 400 that mentions thinking/reasoning
+  (gemini-3.7-flash and 3.8-flash do), the same model is retried with `"low"`,
+  then with the field omitted. The `quality` chain sends nothing (model default).
+- **Logging:** each failure and the winner are printed in the backend terminal,
+  e.g. `[ai] prequiz answered by gemini-3.5-flash-lite (reasoning_effort=minimal) (1.2s)`.
 
 ## API
 
 | Route | Body | Returns |
 |---|---|---|
 | `POST /api/prequiz` | `{ content: string, isImage: boolean, language: 'en'\|'es' }` | `{ questions: [...] }` |
-| `POST /api/summary` | `{ content, isImage, language }` | `text/event-stream` — the OpenRouter SSE stream, relayed unchanged |
+| `POST /api/summary` | `{ content, isImage, language }` | `text/event-stream` — the winning model's SSE stream, relayed unchanged |
 | `POST /api/quiz` | `{ summaryData: {...}, language }` | `{ questions: [...] }` |
 
 Errors are returned as `{ error: <message> }` with the message string ported
-from `index.html` (`err?.error?.message` from OpenRouter, else
+from `index.html` (`err?.error?.message` from the provider, else
 `API error (<status>). Please try again.`, else the parser's
 `The AI returned an unexpected response. Please try again.`).
 
 Image contracts are sent as base64 data URLs in the `content` field with
 `isImage: true`; the backend forwards them in OpenRouter's vision
-`image_url` message format.
+`image_url` message format (Gemini's OpenAI-compatible endpoint takes the same shape).
 
 ## Configuration
 
 | Var | Where | Purpose |
 |---|---|---|
-| `OPENROUTER_KEY` | `backend/.env` | the only secret; never committed |
+| `GEMINI_API_KEY` | `backend/.env` / Render | tried first; if unset, Gemini models are skipped |
+| `OPENROUTER_KEY` | `backend/.env` / Render | fallback after every Gemini model fails; never committed |
 | `PORT` | `backend/.env` | backend listen port (Render sets its own) |
 | `APP_URL` | `backend/.env` | `HTTP-Referer` sent to OpenRouter |
 | `CORS_ORIGIN` | `backend/.env` | restricts the backend to one origin; unset = any |
@@ -173,14 +216,17 @@ Image contracts are sent as base64 data URLs in the `content` field with
 
 **Screen / flow control** (`AppContext`) — `showScreen`, `showError` /
 `hideError`, `loadingLabel`, and the flows `handleFile`, `loadSampleContract`,
-`loadSummary`, `startQuiz`.
+`loadSummary`, `startQuiz`, plus the background runners `runSummary` (streams the
+summary while the user answers the pre-quiz) and `runQuiz` (starts when the summary
+finishes). Stale results are dropped via a generation counter (`genRef`) and
+`AbortController`s, so a new upload or language change can't show an old result.
 
 **File input** — `lib/pdf.extractPdfText` (pdfjs-dist, 12,000-char cap),
 `lib/image.encodeImageBase64`.
 
 **AI calls** (`lib/api.ts` → backend) — `fetchPreQuiz`, `streamSummary`,
-`fetchQuiz`. `MODEL = 'openrouter/free'` lives in
-`backend/src/services/openrouter.ts`.
+`fetchQuiz` (the last two take an optional `AbortSignal`). The model chain lives in
+`backend/src/services/llm.ts`.
 
 **Parsing / rendering** — `lib/parseJSON.parseJSON`,
 `lib/summaryStream._sumExtractPartial`, `lib/quiz.validateQuestions`,
@@ -198,6 +244,10 @@ and the comparison delta branching.
 - `summaryData` — the parsed summary, reused to generate the post-reading quiz.
 - `quizQuestions` / `quizPicks` — same shape as the pre-quiz; `quizScore` derived.
 - `error` — the upload-screen error banner text.
+- Background-generation refs (not React state; nothing renders from them):
+  `summaryStatus` / `quizStatus` (`idle|running|done|error`), `summaryHasText`,
+  `summaryLang` / `quizLang`, `genRef`, the two `AbortController`s, and the
+  `summaryHooks` / `quizHooks` callbacks a foreground click installs.
 
 ## External Dependencies
 
@@ -206,8 +256,10 @@ and the comparison delta branching.
 - **Google Fonts** — Newsreader + Libre Franklin, `<link>`ed in
   `frontend/index.html` (preconnect + one stylesheet).
 - **React 18 / Vite 5** (frontend), **Express 4** (backend), TypeScript on both.
-- **OpenRouter API** — `https://openrouter.ai/api/v1/chat/completions`, model
-  `openrouter/free`, called from the backend only.
+- **Gemini API** (OpenAI-compatible endpoint) — `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`,
+  called from the backend only; first in every chain.
+- **OpenRouter API** — `https://openrouter.ai/api/v1/chat/completions`, `:free` models
+  only, called from the backend only; last-resort fallback.
 
 ## Color Palette
 

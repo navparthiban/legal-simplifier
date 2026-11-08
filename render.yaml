@@ -12,6 +12,8 @@ services:
     startCommand: npm start
     healthCheckPath: /health
     envVars:
+      - key: GEMINI_API_KEY
+        sync: false
       - key: OPENROUTER_KEY
         sync: false
       - key: APP_URL

@@ -21,8 +21,9 @@ ClearSign reads a legal contract (PDF or image) and produces a plain-language
 summary plus before/after comprehension quizzes.
 
 The app is a **`frontend/` (Vite + React + TypeScript) + `backend/` (Express +
-TypeScript)** pair. The backend is the only OpenRouter client; the API key
-lives in `backend/.env` (gitignored) and is never shipped to the browser.
+TypeScript)** pair. The backend is the only AI client; the API keys
+(`GEMINI_API_KEY`, `OPENROUTER_KEY`) live in `backend/.env` (gitignored) and are
+never shipped to the browser.
 
 > This app was ported from a single `index.html` (all HTML/CSS/JS in one file,
 > OpenRouter key hardcoded client-side) with a strict zero-drift parity
@@ -33,7 +34,7 @@ lives in `backend/.env` (gitignored) and is never shipped to the browser.
 ### Current structure
 
 ```
-backend/   Express + TS. src/server.ts, src/routes/api.ts, src/services/openrouter.ts
+backend/   Express + TS. src/server.ts, src/routes/api.ts, src/services/{llm,openrouter}.ts
 frontend/  Vite + React + TS. src/{screens,components,lib,i18n,state,styles}
 ```
 
@@ -45,9 +46,9 @@ Full details in `ARCHITECTURE.md`. Summary:
 - **EN/ES i18n:** `frontend/src/i18n/translations.ts` holds the `TRANSLATIONS`
   dict copied verbatim from `index.html`; `useTranslation()` binds it to the
   active language.
-- **All AI calls go frontend → backend → OpenRouter.** The frontend
-  (`src/lib/api.ts`) never talks to OpenRouter directly. New AI features add a
-  backend route in `src/routes/api.ts` + a helper in `src/services/openrouter.ts`.
+- **All AI calls go frontend → backend → Gemini/OpenRouter.** The frontend
+  (`src/lib/api.ts`) never talks to a model provider directly. New AI features add a
+  backend route in `src/routes/api.ts` + a helper in `src/services/` (prompts/parsers in `openrouter.ts`, model calls via `llm.ts`).
 
 ### Data flow
 
@@ -57,16 +58,20 @@ Full details in `ARCHITECTURE.md`. Summary:
 2. `AppContext.handleFile(file)` dispatches to `lib/pdf.extractPdfText()`
    (pdfjs-dist) or `lib/image.encodeImageBase64()`.
 3. `POST /api/prequiz` generates a quiz from the raw contract text, answered
-   before the user sees any summary.
+   before the user sees any summary. As soon as the pre-quiz appears,
+   `AppContext.runSummary` starts the summary in the background (hidden until the
+   user clicks).
 4. `POST /api/summary` streams the plain-language summary; the backend relays
-   OpenRouter's SSE stream unchanged and `lib/api.streamSummary` parses it with
+   winning model's SSE stream unchanged and `lib/api.streamSummary` parses it with
    the same `data:` / `[DONE]` logic as the old `callOpenRouterStream`.
    `lib/summaryStream._sumExtractPartial` drives the progressive render;
    `lib/parseJSON.parseJSON` does the final authoritative parse.
 5. The Summary screen renders from `streamingPartial` while streaming, then from
-   `summaryData` once parsed.
-6. "Take the Quiz" → `AppContext.startQuiz()` → `POST /api/quiz` using the stored
-   summary → `lib/quiz.validateQuestions` → Quiz screen.
+   `summaryData` once parsed. "See summary" shows it instantly if done, shows the
+   partial text and keeps streaming if in progress, or retries if it failed.
+6. When the summary finishes, `runQuiz` immediately calls `POST /api/quiz`
+   (→ `lib/quiz.validateQuestions`). "Take the Quiz" → `startQuiz()` shows it
+   instantly if ready, waits if still loading, or retries if it failed.
 7. Compare screen shows the pre-quiz vs. post-quiz score via
    `lib/scoreCopy.comparison()`.
 
@@ -74,9 +79,14 @@ Full details in `ARCHITECTURE.md`. Summary:
 
 - **pdfjs-dist 3.11.174** — frontend npm dependency. The worker is still loaded
   from cdnjs (`.../pdf.js/3.11.174/pdf.worker.min.js`); set in `lib/pdfWorker.ts`.
-- **OpenRouter API** — `https://openrouter.ai/api/v1/chat/completions`, model
-  `openrouter/free`, called **only** from `backend/src/services/openrouter.ts`.
-  Images use the vision `image_url` content block; PDFs use plain text messages.
+- **Gemini API** (OpenAI-compatible endpoint) and **OpenRouter** (`:free` models) —
+  called **only** from `backend/src/services/llm.ts`, which walks a model fallback
+  chain (Gemini first, OpenRouter last; `openrouter/free` is never used). Two orders:
+  *fast* (15 s/model, pre-quiz) and *quality* (25 s/model, summary + quiz); the
+  summary timeout is time-to-first-chunk. Models that can't read images are skipped
+  for image uploads. The winning model is logged per request. Prompts and parsers
+  stay in `services/openrouter.ts`. Images use the vision `image_url` content block;
+  PDFs use plain text messages.
 
 ### Key implementation details
 
@@ -110,13 +120,11 @@ Full details in `ARCHITECTURE.md`. Summary:
 
 ### Secrets
 
-- **Never hardcode API keys in client-shipped code.** The key lives in
-  `backend/.env` (gitignored), read via `process.env.OPENROUTER_KEY` in
-  `backend/src/services/openrouter.ts` only. `backend/.env.example` is the
-  committed template (blank value).
-- The key currently in `backend/.env` was ported from the old client-side
-  constant and is in git history — it must be rotated on OpenRouter (`PRD.md`
-  P0). Deploy hosts get the key via their own env-var settings, never a commit.
+- **Never hardcode API keys in client-shipped code.** The keys (`GEMINI_API_KEY`,
+  `OPENROUTER_KEY`) live in `backend/.env` (gitignored), read via `process.env` in
+  `backend/src/services/llm.ts` only. `backend/.env.example` is the committed
+  template (blank values). Deploy hosts get the keys via their own env-var
+  settings (see `render.yaml`), never a commit.
 - Root `.gitignore` covers `node_modules/`, `.env`, `dist/`, `build/`.
 
 ## Color Palette

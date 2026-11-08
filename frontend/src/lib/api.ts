@@ -47,11 +47,13 @@ export async function fetchPreQuiz(input: ContractInput): Promise<Question[]> {
 export async function fetchQuiz(
   summaryData: SummaryData,
   language: Language,
+  signal?: AbortSignal,
 ): Promise<Question[]> {
   const res = await fetch(`${API_BASE}/api/quiz`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ summaryData, language }),
+    signal,
   });
   if (!res.ok) throw await errorFromResponse(res);
   const data = await res.json();
@@ -63,11 +65,13 @@ export async function fetchQuiz(
 export async function streamSummary(
   input: ContractInput,
   onChunk: (accumulated: string) => void,
+  signal?: AbortSignal,
 ): Promise<string> {
   const res = await fetch(`${API_BASE}/api/summary`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
+    signal,
   });
 
   if (!res.ok) throw await errorFromResponse(res);

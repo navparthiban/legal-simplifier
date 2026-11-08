@@ -18,7 +18,8 @@ see how much your understanding actually improved.
 
 - **Upload a contract** — drag-and-drop or browse for a PDF or image.
 - **Plain-language summary** — obligations, deadlines, rights, and risk flags,
-  streamed in as the AI generates them.
+  streamed in as the AI generates them. It starts generating while you answer the
+  pre-reading quiz, so it's usually ready when you click.
 - **Pre-reading quiz** — 5 questions based on the raw legal text, before you see
   the summary, so you have a baseline.
 - **Post-reading quiz** — 5 questions based on the summary, to check comprehension.
@@ -33,19 +34,23 @@ see how much your understanding actually improved.
 - **Frontend** — Vite + React + TypeScript. PDF text extraction with
   [pdfjs-dist](https://mozilla.github.io/pdf.js/). Type set in Newsreader +
   Libre Franklin (Google Fonts); design tokens in `frontend/src/styles/global.css`.
-- **Backend** — Express + TypeScript. The only [OpenRouter](https://openrouter.ai/)
-  client; the API key never reaches the browser.
+- **Backend** — Express + TypeScript. The only AI client; the keys never reach the
+  browser. Each request tries a chain of [Gemini](https://ai.google.dev/) models
+  first and falls back to [OpenRouter](https://openrouter.ai/) `:free` models if
+  they all fail (see `ARCHITECTURE.md`).
 - No database — nothing is persisted between sessions.
 
 ## Running It Locally
 
-Two packages, started separately. You need Node 20+ and an OpenRouter API key.
+Two packages, started separately. You need Node 20+ and a Gemini API key
+([get one](https://aistudio.google.com/apikey)). An OpenRouter key is optional but
+recommended as the fallback.
 
 ### 1. Backend
 
 ```bash
 cd backend
-cp .env.example .env          # then edit .env and set OPENROUTER_KEY=...
+cp .env.example .env          # then edit .env: set GEMINI_API_KEY=... (and OPENROUTER_KEY=...)
 npm install
 npm run dev                   # http://localhost:8787
 ```
@@ -89,7 +94,8 @@ at the repo root hold the config for each.
   Render reads `render.yaml` and creates a "clearsign-backend" web service
   rooted at `backend/`.
 - When prompted for environment variables, set:
-  - `OPENROUTER_KEY` — your key
+  - `GEMINI_API_KEY` — your Gemini key (tried first)
+  - `OPENROUTER_KEY` — your OpenRouter key (fallback)
   - `APP_URL` — fill in after step 2, with your Netlify URL
   - `CORS_ORIGIN` — same as `APP_URL`, restricts who can call the API
 - Deploy, then copy the service's URL (`https://clearsign-backend-xxxx.onrender.com`).

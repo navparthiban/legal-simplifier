@@ -75,8 +75,17 @@ interface AppState {
   answerQuiz: (qIdx: number, oIdx: number) => void;
   quizAnswered: number;
   quizScore: number;
-  startQuiz: () => Promise<void>;
+  /** `fresh: true` always generates new questions (used by the Retry button). */
+  startQuiz: (opts?: { fresh?: boolean }) => Promise<void>;
 }
+
+interface SummaryHooks {
+  onText: () => void;
+  onDone: () => void;
+  onError: (err: Error) => void;
+}
+
+type Status = 'idle' | 'running' | 'done' | 'error';
 
 const Ctx = createContext<AppState | null>(null);
 
@@ -111,6 +120,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [quizQuestions, setQuizQuestions] = useState<Question[] | null>(null);
   const [quizPicks, setQuizPicks] = useState<(number | null)[]>([]);
+
+  // ── Background generation bookkeeping (refs: no UI reads these) ────────────
+  const genRef = useRef(0); // bumped whenever a new contract/summary run starts
+  const summaryAbort = useRef<AbortController | null>(null);
+  const quizAbort = useRef<AbortController | null>(null);
+  const quizSeq = useRef(0);
+  const summaryStatus = useRef<Status>('idle');
+  const quizStatus = useRef<Status>('idle');
+  const summaryHasText = useRef(false);
+  const summaryLang = useRef<Language | null>(null);
+  const quizLang = useRef<Language | null>(null);
+  const summaryHooks = useRef<SummaryHooks | null>(null);
+  const quizHooks = useRef<{ onError: (err: Error) => void } | null>(null);
 
   const fadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const screenRef = useRef<ScreenName>('home');
@@ -160,11 +182,102 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setQuizPicks([]);
   }, []);
 
+  // ── Background generation ──────────────────────────────────────────────────
+  // The post-reading quiz starts as soon as the summary has parsed.
+  const runQuiz = useCallback(
+    async (summary: SummaryData, lang: Language, gen: number) => {
+      quizAbort.current?.abort();
+      const ctrl = new AbortController();
+      quizAbort.current = ctrl;
+      const seq = ++quizSeq.current;
+      const stale = () => seq !== quizSeq.current || gen !== genRef.current;
+
+      quizStatus.current = 'running';
+      quizLang.current = lang;
+      try {
+        const questions = await fetchQuiz(summary, lang, ctrl.signal);
+        if (stale()) return;
+        setQuizQuestions(validateQuestions(questions));
+        setQuizPicks([]);
+        quizStatus.current = 'done';
+      } catch (err) {
+        if (stale()) return;
+        quizStatus.current = 'error';
+        quizHooks.current?.onError(err as Error);
+      }
+    },
+    [],
+  );
+
+  // Streams the summary into state. Runs while the user answers the pre-quiz;
+  // nothing is shown until they click (the Summary screen is only reachable
+  // from the pre-quiz button).
+  const runSummary = useCallback(
+    async (c: Contract, lang: Language, hooks: SummaryHooks | null) => {
+      summaryAbort.current?.abort();
+      quizAbort.current?.abort();
+      const ctrl = new AbortController();
+      summaryAbort.current = ctrl;
+      const gen = ++genRef.current;
+      const stale = () => gen !== genRef.current;
+
+      summaryStatus.current = 'running';
+      quizStatus.current = 'idle';
+      quizHooks.current = null;
+      summaryHasText.current = false;
+      summaryLang.current = lang;
+      summaryHooks.current = hooks;
+      setSummaryData(null);
+      setStreamingPartial(null);
+      setQuizQuestions(null);
+      setQuizPicks([]);
+
+      try {
+        const accumulated = await streamSummary(
+          { content: c.content, isImage: c.isImage, language: lang },
+          (text) => {
+            if (stale()) return;
+            if (!summaryHasText.current) {
+              summaryHasText.current = true;
+              setStreamingPartial(_sumExtractPartial(''));
+              summaryHooks.current?.onText();
+            }
+            setStreamingPartial(_sumExtractPartial(text));
+          },
+          ctrl.signal,
+        );
+        if (stale()) return;
+
+        const summary = parseJSON(accumulated) as SummaryData;
+        setSummaryData(summary);
+        setStreamingPartial(null);
+        summaryStatus.current = 'done';
+        summaryHooks.current?.onDone();
+        void runQuiz(summary, lang, gen);
+      } catch (err) {
+        if (stale()) return;
+        setStreamingPartial(null);
+        summaryStatus.current = 'error';
+        summaryHooks.current?.onError(err as Error);
+      }
+    },
+    [runQuiz],
+  );
+
   // ── Flow: upload → pre-quiz ────────────────────────────────────────────────
   const handleFile = useCallback(
     async (file: File) => {
       hideError();
       showScreen('loading');
+
+      // A new contract invalidates anything still generating for the old one.
+      genRef.current++;
+      summaryAbort.current?.abort();
+      quizAbort.current?.abort();
+      summaryStatus.current = 'idle';
+      quizStatus.current = 'idle';
+      summaryHooks.current = null;
+      quizHooks.current = null;
 
       try {
         setLoadingLabel(t('loading-reading'));
@@ -181,7 +294,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           throw new Error('Unsupported file type. Please upload a PDF or image.');
         }
 
-        setContract({ fileName: file.name, content, isImage });
+        const c: Contract = { fileName: file.name, content, isImage };
+        setContract(c);
         setSummaryData(null);
         setStreamingPartial(null);
         resetQuiz();
@@ -192,12 +306,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setPreQuizQuestions(validateQuestions(questions));
         setPreQuizPicks([]);
         showScreen('prequiz');
+        // Start the summary now, while the user answers the pre-quiz.
+        void runSummary(c, language, null);
       } catch (err) {
         showScreen('upload');
         showError((err as Error).message || 'Something went wrong. Please try again.');
       }
     },
-    [hideError, showScreen, t, language, resetQuiz, showError],
+    [hideError, showScreen, t, language, resetQuiz, showError, runSummary],
   );
 
   const loadSampleContract = useCallback(async () => {
@@ -218,52 +334,76 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await handleFile(file);
   }, [showScreen, t, showError, handleFile]);
 
-  // ── Flow: pre-quiz → summary (streaming) ───────────────────────────────────
+  // ── Flow: pre-quiz → summary ───────────────────────────────────────────────
+  // Finished → show now. Still streaming → show what's there and keep filling.
+  // Failed (or language changed since it started) → try again now.
   const loadSummary = useCallback(async () => {
     if (!contract) return;
+
+    const status = summaryStatus.current;
+    const sameLang = summaryLang.current === language;
+    if (sameLang && (status === 'done' || (status === 'running' && summaryHasText.current))) {
+      showScreen('summary');
+      return;
+    }
+
     showScreen('loading');
     setLoadingLabel(t('loading-simplifying'));
 
-    let screenShown = false;
-    try {
-      const accumulated = await streamSummary(
-        { content: contract.content, isImage: contract.isImage, language },
-        (text) => {
-          if (!screenShown) {
-            setStreamingPartial(_sumExtractPartial(''));
-            showScreen('summary');
-            screenShown = true;
-          }
-          setStreamingPartial(_sumExtractPartial(text));
-        },
-      );
+    let shown = false;
+    const hooks: SummaryHooks = {
+      onText: () => {
+        shown = true;
+        showScreen('summary');
+      },
+      onDone: () => {
+        if (!shown) showScreen('summary');
+      },
+      onError: (err) => {
+        showScreen('prequiz');
+        window.alert(
+          'Could not generate the summary. Please try again.\n\n' + (err.message || ''),
+        );
+      },
+    };
 
-      const summary = parseJSON(accumulated) as SummaryData;
-      setSummaryData(summary);
-      setStreamingPartial(null);
-      if (!screenShown) showScreen('summary');
-    } catch (err) {
-      showScreen('prequiz');
-      window.alert(
-        'Could not generate the summary. Please try again.\n\n' + ((err as Error).message || ''),
-      );
+    if (sameLang && status === 'running') {
+      summaryHooks.current = hooks; // request is in flight but silent so far
+    } else {
+      void runSummary(contract, language, hooks);
     }
-  }, [contract, showScreen, t, language]);
+  }, [contract, showScreen, t, language, runSummary]);
 
   // ── Flow: summary → quiz ──────────────────────────────────────────────────
-  const startQuiz = useCallback(async () => {
-    if (!summaryData) return;
-    resetQuiz();
-    showScreen('quiz');
-    try {
-      const questions = await fetchQuiz(summaryData, language);
-      setQuizQuestions(validateQuestions(questions));
-      setQuizPicks([]);
-    } catch (err) {
-      showScreen('summary');
-      showError((err as Error).message || 'Could not generate quiz questions. Please try again.');
-    }
-  }, [summaryData, resetQuiz, showScreen, language, showError]);
+  const startQuiz = useCallback(
+    async (opts?: { fresh?: boolean }) => {
+      if (!summaryData) return;
+      const status = quizStatus.current;
+      const sameLang = quizLang.current === language;
+
+      quizHooks.current = {
+        onError: (err) => {
+          showScreen('summary');
+          showError(err.message || 'Could not generate quiz questions. Please try again.');
+        },
+      };
+
+      if (!opts?.fresh && sameLang && status === 'done') {
+        setQuizPicks([]); // already generated in the background
+        showScreen('quiz');
+        return;
+      }
+      if (!opts?.fresh && sameLang && status === 'running') {
+        showScreen('quiz'); // spinner until the background request lands
+        return;
+      }
+
+      resetQuiz();
+      showScreen('quiz');
+      void runQuiz(summaryData, language, genRef.current);
+    },
+    [summaryData, resetQuiz, showScreen, language, showError, runQuiz],
+  );
 
   // ── Answer handlers ───────────────────────────────────────────────────────
   const answerPreQuiz = useCallback((qIdx: number, oIdx: number) => {
