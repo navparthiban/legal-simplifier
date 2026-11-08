@@ -41,6 +41,7 @@ legal-simplifier/
 │
 ├── frontend/                      # Vite + React + TypeScript
 │   ├── public/SampleRentalAgreement.pdf   # served at /SampleRentalAgreement.pdf
+│   ├── public/favicon.svg, favicon.png    # tab icon (pen-blue square, paper "C" + underline); png is 64×64
 │   ├── index.html                # Vite entry (<div id="root">)
 │   ├── src/
 │   │   ├── main.tsx              # React root, imports global.css, wraps <App> in <AppProvider>
@@ -144,6 +145,8 @@ User clicks "See summary" → AppContext.loadSummary()
    · still streaming     → Summary screen shows what's there, keeps filling in
    · failed / lang changed → retries in the foreground (loading screen)
 User clicks "Take the Quiz" → AppContext.startQuiz()
+   · button is `disabled` (with a spinner + `sum-cta-wait` note, `aria-live="polite"`)
+     until `summaryData` is parsed, i.e. while the summary is still streaming
    · done → Quiz screen shows at once · loading → spinner until it lands
    · failed → retries in the foreground · Retry button → always fetches fresh
         ▼
@@ -165,7 +168,7 @@ format and JSON parsers are identical for all of them.
 | Chain | Timeout / model | Used by | Gemini order |
 |---|---|---|---|
 | `fast` | 15 s | `/api/prequiz` (user is waiting) | 3.5-flash-lite → 3.5-flash → 3.7-flash → 3.8-flash |
-| `quality` | 25 s | `/api/summary`, `/api/quiz` (run in the background) | 3.5-flash → 3.7-flash → 3.5-flash-lite → 3.8-flash |
+| `quality` | 25 s | `/api/summary`, `/api/quiz` (run in the background) | 3.5-flash → 3.5-flash-lite → 3.7-flash → 3.8-flash |
 
 Both end with `nvidia/nemotron-3.5-super-vl:free` (reads images) and
 `dots-studio/dots-3-note-preview:free` (treated as text-only).
@@ -184,8 +187,22 @@ Both end with `nvidia/nemotron-3.5-super-vl:free` (reads images) and
   rather than wasting a call). Each model's `efforts` list is the order to try; if a
   400 mentions thinking/reasoning, the next value is tried, finally omitting the
   field. The `quality` chain sends nothing (model default).
+- **Quota cooldown:** Gemini's free tier allows roughly 20 requests/day *per model*, so
+  once a model reports a quota/rate-limit error `walkChain` skips it for a while instead
+  of spending a call on it per request (streaming and non-streaming alike). A quota
+  error is HTTP 429, or any error message matching `quota` / `rate limit` /
+  `RESOURCE_EXHAUSTED`; a 503 "high demand" is **not** one and gets no cooldown. Length:
+  the provider's own retry time (`RetryInfo.retryDelay`, a `Retry-After` header, or
+  "retry in 2h4m8.8s" in the message), clamped to 15 s – 6 h; else 1 h if the message says
+  `per day` / `daily`; else 60 s. Kept in an in-memory map `model id → skip-until`
+  (`quotaCooldowns`), so it resets on restart; `resetQuotaCooldowns()` clears it for
+  tests. If every usable model is cooling down, the cooldowns are ignored and all are
+  tried. A paid Gemini key is the real fix for the daily limit.
 - **Logging:** each failure and the winner are printed in the backend terminal,
   e.g. `[ai] prequiz answered by gemini-3.5-flash-lite (reasoning_effort=minimal) (1.2s)`.
+  Cooldowns log `[ai] summary: gemini-3.5-flash hit its quota/rate limit — skipping it for 2h4m`
+  when entered and `[ai] summary: skipping gemini-3.5-flash (quota cooldown, 2h1m left)` on
+  every request that skips the model.
 
 ## API
 

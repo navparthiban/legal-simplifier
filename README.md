@@ -107,6 +107,10 @@ at the repo root hold the config for each.
   `npm start`, same env vars.)*
 - Render's free tier spins down after 15 minutes idle — the first request
   after that takes ~30–60s to wake back up. Normal, not a bug.
+- Gemini's free tier allows only about 20 requests per day **per model**. When one runs
+  out, the backend notes it (`[ai] … hit its quota/rate limit — skipping it for …` in the
+  log) and skips that model for a while, falling back to the next one. It still works,
+  but a paid Gemini key is the real fix if you expect steady traffic.
 
 **2. Frontend → Netlify**
 - [netlify.com](https://netlify.com) → **Add new site → Import an existing

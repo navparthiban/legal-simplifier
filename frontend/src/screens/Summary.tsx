@@ -134,7 +134,11 @@ export function Summary() {
           <h3>{t('sum-cta-h3')}</h3>
           <p>{t('sum-cta-p')}</p>
           <ErrorBanner />
-          <button className="btn-quiz" onClick={() => void startQuiz()}>
+          <button
+            className="btn-quiz"
+            disabled={summaryData == null}
+            onClick={() => void startQuiz()}
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -150,6 +154,14 @@ export function Summary() {
             </svg>
             <span>{t('sum-cta-btn')}</span>
           </button>
+          <div className="quiz-cta-wait" aria-live="polite">
+            {summaryData == null && (
+              <>
+                <span className="spinner spinner-sm" aria-hidden="true"></span>
+                <span>{t('sum-cta-wait')}</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </Screen>

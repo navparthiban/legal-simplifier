@@ -85,8 +85,11 @@ Full details in `ARCHITECTURE.md`. Summary:
 - **Gemini API** (OpenAI-compatible endpoint) and **OpenRouter** (`:free` models) —
   called **only** from `backend/src/services/llm.ts`, which walks a model fallback
   chain (Gemini first, OpenRouter last; `openrouter/free` is never used). Two orders:
-  *fast* (15 s/model, pre-quiz) and *quality* (25 s/model, summary + quiz); the
-  summary timeout is time-to-first-chunk. Models that can't read images are skipped
+  *fast* (15 s/model, pre-quiz) and *quality* (25 s/model, summary + quiz; Gemini order
+  3.5-flash → 3.5-flash-lite → 3.7-flash → 3.8-flash); the summary timeout is
+  time-to-first-chunk. A model that hits a quota/rate-limit error (429, not a 503) is
+  skipped for a cooldown (provider's retry time, clamped 15 s–6 h; else 1 h for "per day",
+  else 60 s), kept in memory in `llm.ts`. Models that can't read images are skipped
   for image uploads. The winning model is logged per request. Prompts and parsers
   stay in `services/openrouter.ts`. Images use the vision `image_url` content block;
   PDFs use plain text messages, except scanned PDFs, which are sent as an array of page

@@ -68,8 +68,8 @@ const CHAINS: Record<ChainName, Chain> = {
     lowReasoning: false,
     models: [
       gemini('gemini-3.5-flash'),
-      gemini('gemini-3.7-flash', LOW_FIRST),
       gemini('gemini-3.5-flash-lite'),
+      gemini('gemini-3.7-flash', LOW_FIRST),
       gemini('gemini-3.8-flash', LOW_FIRST),
       ...OPENROUTER_FALLBACKS,
     ],
@@ -92,9 +92,70 @@ class HttpError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    /** Retry time the provider reported (RetryInfo.retryDelay or Retry-After), in ms. */
+    readonly retryAfterMs?: number,
   ) {
     super(message);
   }
+}
+
+// ── quota cooldown ────────────────────────────────────────────────────────────
+// Gemini's free tier allows ~20 requests/day per model. Once a model reports a
+// quota/rate-limit error we skip it for a while instead of burning a call on it
+// for every request. In memory, per model id; resets when the server restarts.
+
+const MIN_COOLDOWN_MS = 15_000;
+const MAX_COOLDOWN_MS = 6 * 60 * 60_000;
+const DAILY_COOLDOWN_MS = 60 * 60_000;
+const DEFAULT_COOLDOWN_MS = 60_000;
+
+/** model id → epoch ms until which the model is skipped. */
+const quotaCooldowns = new Map<string, number>();
+
+/** Test helper: forget every cooldown. */
+export function resetQuotaCooldowns(): void {
+  quotaCooldowns.clear();
+}
+
+/** 429, or a message that talks about quota / rate limits. A 503 "high demand" is not quota. */
+function isQuotaError(err: unknown): boolean {
+  if (!(err instanceof HttpError)) return false;
+  if (err.status === 429) return true;
+  if (err.status === 503) return false;
+  return /quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(err.message);
+}
+
+/** Parses "2h4m8.8s", "7432s", "7.5s" (all-or-nothing) into ms; undefined if not a duration. */
+export function parseDurationMs(text: string): number | undefined {
+  const m = text.trim().match(/^(?:(\d+(?:\.\d+)?)h)?\s*(?:(\d+(?:\.\d+)?)m(?!s))?\s*(?:(\d+(?:\.\d+)?)s)?$/i);
+  if (!m || (m[1] === undefined && m[2] === undefined && m[3] === undefined)) return undefined;
+  return Math.round(
+    (Number(m[1] ?? 0) * 3600 + Number(m[2] ?? 0) * 60 + Number(m[3] ?? 0)) * 1000,
+  );
+}
+
+/** How long to skip a model after a quota error, per the rules above. */
+export function cooldownMs(err: HttpError): number {
+  let ms = err.retryAfterMs;
+  if (ms === undefined) {
+    const fromMessage = err.message.match(/retry in\s+([0-9hms.\s]+?)(?=[^0-9hms.\s]|$)/i);
+    // Strip the sentence's trailing "." ("…retry in 2h4m8.8s.") before parsing.
+    ms = fromMessage ? parseDurationMs(fromMessage[1].replace(/[.\s]+$/, '')) : undefined;
+  }
+  if (ms !== undefined) return Math.min(MAX_COOLDOWN_MS, Math.max(MIN_COOLDOWN_MS, ms));
+  if (/per ?day|daily/i.test(err.message)) return DAILY_COOLDOWN_MS;
+  return DEFAULT_COOLDOWN_MS;
+}
+
+/** "2h4m", "3m20s", "45s". */
+function formatDuration(ms: number): string {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}h${m}m`;
+  if (m > 0) return `${m}m${s}s`;
+  return `${s}s`;
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -117,11 +178,23 @@ function headersFor(provider: Provider, key: string) {
 
 /** Same message as the old client for non-OK responses. */
 async function errorFromResponse(res: Response): Promise<HttpError> {
-  const raw = (await res.json().catch(() => ({}))) as
-    | { error?: { message?: string } }
-    | { error?: { message?: string } }[];
+  type Body = { error?: { message?: string; details?: { retryDelay?: string }[] } };
+  const raw = (await res.json().catch(() => ({}))) as Body | Body[];
   const err = Array.isArray(raw) ? raw[0] : raw;
-  return new HttpError(err?.error?.message || `API error (${res.status}). Please try again.`, res.status);
+
+  // The provider's own retry time: Gemini's RetryInfo.retryDelay ("7432s"), else a Retry-After header (seconds).
+  let retryAfterMs: number | undefined;
+  const delay = err?.error?.details?.find((d) => typeof d?.retryDelay === 'string')?.retryDelay;
+  if (delay) retryAfterMs = parseDurationMs(delay);
+  if (retryAfterMs === undefined) {
+    const header = Number(res.headers.get('retry-after'));
+    if (Number.isFinite(header) && header > 0) retryAfterMs = Math.round(header * 1000);
+  }
+  return new HttpError(
+    err?.error?.message || `API error (${res.status}). Please try again.`,
+    res.status,
+    retryAfterMs,
+  );
 }
 
 const describe = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -167,8 +240,26 @@ async function walkChain<T>(
     );
   }
 
+  // Skip models still cooling down from a quota error — unless that leaves nothing to try.
+  const now = Date.now();
+  const active = models.filter((m) => (quotaCooldowns.get(m.id) ?? 0) <= now);
+  let toTry = models;
+  if (active.length === 0) {
+    console.log(`[ai] ${opts.label}: every model is in quota cooldown — trying them anyway`);
+  } else {
+    toTry = active;
+    for (const m of models) {
+      const until = quotaCooldowns.get(m.id) ?? 0;
+      if (until > now) {
+        console.log(
+          `[ai] ${opts.label}: skipping ${m.id} (quota cooldown, ${formatDuration(until - now)} left)`,
+        );
+      }
+    }
+  }
+
   let lastError: unknown = new Error('All AI models failed. Please try again.');
-  for (const model of models) {
+  for (const model of toTry) {
     for (const effort of effortLadder(model, chain)) {
       const started = Date.now();
       try {
@@ -182,6 +273,14 @@ async function walkChain<T>(
             (effort ? ` (reasoning_effort=${effort})` : '') +
             ` — ${timedOut ? `timeout ${chain.timeoutMs / 1000}s` : describe(err)}`,
         );
+        if (isQuotaError(err)) {
+          const ms = cooldownMs(err as HttpError);
+          quotaCooldowns.set(model.id, Date.now() + ms);
+          console.log(
+            `[ai] ${opts.label}: ${model.id} hit its quota/rate limit — skipping it for ${formatDuration(ms)}`,
+          );
+          break;
+        }
         // Only a 400 on a request that carried reasoning_effort means "try a higher setting".
         const rejectedEffort =
           err instanceof HttpError &&

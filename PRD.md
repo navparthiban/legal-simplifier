@@ -31,7 +31,8 @@ No persistence, no accounts — same as before.
 - AI-generated plain-language summary (obligations / deadlines / rights / risk
   flags), streamed into the UI as it's generated.
 - Model fallback chain (fast order for the pre-quiz, quality order for the rest),
-  with the winning model logged in the backend terminal.
+  with the winning model logged in the backend terminal. Models that hit a quota limit
+  are skipped for a cooldown.
 - Background generation: the summary starts while the user answers the pre-quiz
   and the post-reading quiz starts as soon as the summary finishes.
 - Pre-reading and post-reading 5-question quizzes, with a before/after score
@@ -55,6 +56,12 @@ Roughly ordered by severity.
   3.7/3.8 flash sometimes return 503 ("high demand"), which the chain absorbs by moving
   on. If a model ID is retired, requests will just log a failure and fall through, so
   watch the `[ai] ... failed` lines in the backend log.
+- **P1 — Gemini free-tier daily quota (~20 requests/day per model).** Handled, not
+  solved: a model that returns a quota/rate-limit error is skipped for a cooldown
+  (the provider's retry time, clamped 15 s–6 h; else 1 h for "per day", else 60 s) so
+  requests stop wasting a call on it, and the chain falls through to the next model. The
+  cooldown is in memory, so it resets on restart (one cheap failed call re-learns it).
+  The limit itself still exists; a paid Gemini key is the real fix.
 - **P2 — gemini-3.5-flash-lite had one slow call.** It is first in the FAST chain (15s
   limit). On 2026-11-07 one early call took ~9.9s, but 8 later calls (including a
   quiz-sized prompt, 6 in a row) took 1.2–3.1s, so it looks like a one-off cold start.
@@ -107,6 +114,11 @@ Roughly ordered by severity.
 - [x] Raise the PDF text cap from 12,000 to 50,000 characters and tell the user when a
       contract was cut off.
 - [x] Support scanned PDFs by rendering up to 8 pages to images in the browser.
+- [x] Skip a Gemini model for a cooldown after a quota/rate-limit error, and reorder the
+      quality chain (3.5-flash → 3.5-flash-lite → 3.7-flash → 3.8-flash).
+- [x] Disable "Take the quiz" (with a spinner + note) until the summary has finished
+      streaming; it used to silently do nothing.
+- [x] Add a favicon (removes the `/favicon.ico` 404).
 - [ ] Retry on the next model when a model answers with malformed JSON, not only
       when it errors or times out.
 
