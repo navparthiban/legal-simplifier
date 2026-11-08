@@ -51,7 +51,7 @@ legal-simplifier/
 │   │   │   └── useTranslation.ts# hook binding t()/tArr() to the active language
 │   │   ├── state/AppContext.tsx # all app state + the flow functions (see below)
 │   │   ├── lib/
-│   │   │   ├── api.ts           # fetch wrappers → backend (prequiz / summary stream / quiz)
+│   │   │   ├── api.ts           # fetch wrappers → backend (prequiz / summary stream / quiz) + wakeBackend()
 │   │   │   ├── pdf.ts           # extractPdfText (pdfjs-dist, 12k cap)  — verbatim
 │   │   │   ├── pdfWorker.ts     # sets pdfjs workerSrc to the cdnjs 3.11.174 worker
 │   │   │   ├── image.ts         # encodeImageBase64 — verbatim
@@ -62,7 +62,7 @@ legal-simplifier/
 │   │   │   └── types.ts         # Question, SummaryData, StreamingPartial
 │   │   ├── components/          # Nav, Footer, Screen, QuizQuestion, SummaryLists
 │   │   └── screens/             # Home, Upload, Loading, PreQuiz, Summary, Quiz, Compare
-│   ├── vite.config.ts           # dev proxy: /api → http://localhost:8787
+│   ├── vite.config.ts           # dev proxy: /api and /health → http://localhost:8787
 │   └── package.json / tsconfig*.json
 │
 ├── SampleRentalAgreement.pdf     # canonical sample (the copy in frontend/public is what ships)
@@ -102,6 +102,11 @@ lives in `AppContext`.
 ## Data Flow
 
 ```
+Page load (main.tsx) → lib/api.wakeBackend(): one fire-and-forget GET ${API_BASE}/health,
+   so a sleeping Render free-tier backend starts waking while the user is on the homepage.
+   Runs once per page load, ignores the response, never shows an error.
+        │
+        ▼
 Upload (or "Try a Sample Contract" → fetch('/SampleRentalAgreement.pdf'))
         │
         ▼
@@ -184,6 +189,7 @@ Both end with `nvidia/nemotron-3.5-super-vl:free` (reads images) and
 | `POST /api/prequiz` | `{ content: string, isImage: boolean, language: 'en'\|'es' }` | `{ questions: [...] }` |
 | `POST /api/summary` | `{ content, isImage, language }` | `text/event-stream` — the winning model's SSE stream, relayed unchanged |
 | `POST /api/quiz` | `{ summaryData: {...}, language }` | `{ questions: [...] }` |
+| `GET /health` | — | `{ ok: true }` — no AI call; pinged once on page load by `wakeBackend()` and used as Render's health check |
 
 Errors are returned as `{ error: <message> }` with the message string ported
 from `index.html` (`err?.error?.message` from the provider, else
@@ -203,7 +209,7 @@ Image contracts are sent as base64 data URLs in the `content` field with
 | `PORT` | `backend/.env` | backend listen port (Render sets its own) |
 | `APP_URL` | `backend/.env` | `HTTP-Referer` sent to OpenRouter |
 | `CORS_ORIGIN` | `backend/.env` | restricts the backend to one origin; unset = any |
-| `VITE_API_BASE` | `frontend/.env` / build-time | prefixes every `/api/*` call in the **built** bundle — set this to the deployed backend's URL. Unset in local dev, where relative paths go through the Vite proxy instead |
+| `VITE_API_BASE` | `frontend/.env` / build-time | prefixes every `/api/*` call **and the `/health` wake-up ping** in the **built** bundle — set this to the deployed backend's URL. Unset in local dev, where relative paths go through the Vite proxy instead |
 | `VITE_BACKEND_URL` | shell env before `npm run dev` | only affects `vite.config.ts`'s **dev-server proxy target**, not the built bundle |
 
 `render.yaml` / `netlify.toml` deploy `backend/` and `frontend/` respectively

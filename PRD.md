@@ -36,6 +36,10 @@ No persistence, no accounts — same as before.
 - EN/ES language toggle with a full UI translation dictionary.
 - "Try Sample Contract" demo mode using a bundled sample rental agreement.
 - Reasonable error handling on API calls (try/catch with user-facing messages).
+- Backend wake-up: the frontend pings `/health` once on page load (silently, never
+  showing an error) so Render's sleeping free-tier server starts waking while the user
+  is still on the homepage. Remaining gap: a user who uploads within seconds of landing
+  can still wait for the rest of the 30–60s wake-up.
 - XSS protection on AI-returned text via `escHtml()` before it hits `innerHTML`.
 
 ## Known Gaps / Risks
@@ -88,6 +92,7 @@ Roughly ordered by severity.
 - [x] Generate the summary and the post-reading quiz in the background.
 - [x] Drop `nvidia/nemotron-3-super-120b-a12b:free` (404 as of 2026-11-07).
 - [x] Start gemini-3.7-flash / 3.8-flash at `reasoning_effort=low` (they reject `minimal`).
+- [x] Wake the sleeping Render backend on page load (`wakeBackend()` → `/health`).
 - [ ] Retry on the next model when a model answers with malformed JSON, not only
       when it errors or times out.
 

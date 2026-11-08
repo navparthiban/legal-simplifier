@@ -10,9 +10,10 @@ see how much your understanding actually improved.
 > ⚠️ **Not legal advice.** ClearSign is an educational tool that helps you understand
 > a contract in plain English. It does not replace a lawyer.
 
-> The backend runs on Render's free tier, which sleeps after 15 minutes idle —
-> the first contract you analyze after a quiet spell may take ~30–60s while it
-> wakes up, then it's fast.
+> The backend runs on Render's free tier, which sleeps after 15 minutes idle.
+> The app pings the backend as soon as the page opens so it starts waking up while
+> you pick a file, but if you upload right away after a quiet spell it may still take
+> up to ~30–60s the first time, then it's fast.
 
 ## Features
 

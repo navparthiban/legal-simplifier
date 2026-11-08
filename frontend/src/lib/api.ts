@@ -18,6 +18,23 @@ import type { Question, SummaryData } from './types';
  */
 const API_BASE = import.meta.env.VITE_API_BASE ?? '';
 
+let woke = false;
+
+/**
+ * Pings the backend's /health route once per page load so a sleeping Render
+ * free-tier server starts waking up while the user is still on the homepage.
+ * Fire-and-forget: never throws, never touches the UI, ignores the response.
+ */
+export function wakeBackend(): void {
+  if (woke) return;
+  woke = true;
+  try {
+    void fetch(`${API_BASE}/health`, { cache: 'no-store' }).catch(() => {});
+  } catch {
+    /* never surface a wake-up failure */
+  }
+}
+
 async function errorFromResponse(res: Response): Promise<Error> {
   const err = await res.json().catch(() => ({}) as any);
   const msg =

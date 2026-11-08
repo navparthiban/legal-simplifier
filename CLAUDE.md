@@ -52,6 +52,8 @@ Full details in `ARCHITECTURE.md`. Summary:
 
 ### Data flow
 
+0. On page load `main.tsx` calls `lib/api.wakeBackend()` — one silent, fire-and-forget
+   `GET ${API_BASE}/health` so Render's sleeping free-tier backend starts waking.
 1. User uploads a PDF/image, or clicks "Try a Sample Contract" (which does
    `fetch('/SampleRentalAgreement.pdf')` from `frontend/public/` — no base64
    literal any more).
