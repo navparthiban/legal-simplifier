@@ -1,5 +1,7 @@
 # ClearSign — Legal Contract Simplifier
 
+[![CI](https://github.com/navparthiban/legal-simplifier/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/navparthiban/legal-simplifier/actions/workflows/ci.yml)
+
 ClearSign reads a legal contract (PDF or image) and turns it into a plain-language
 breakdown: what each party has to do, key deadlines, rights, and risk flags worth
 a second look. It also quizzes you before and after reading the summary so you can
@@ -82,6 +84,17 @@ cd frontend && npm run build                   # static files in frontend/dist/
 Serve `frontend/dist/` from any static host. Unlike local dev, a deployed
 frontend and backend aren't on the same address, so the frontend needs to be
 told where the backend is — see `VITE_API_BASE` below.
+
+### Continuous integration
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request to `main` and
+every push to `main`. For both `frontend/` and `backend/` it runs `npm ci`,
+`npm run typecheck` and `npm run build` on Node 20 (the minimum in `package.json`
+`engines`). It needs no API keys and never calls Gemini or OpenRouter. The two checks
+show up on a pull request as `build (frontend)` and `build (backend)`.
+
+`main` is meant to change only through a pull request whose checks pass; GitHub branch
+protection on `main` enforces this.
 
 ## Deploying (Render + Netlify)
 

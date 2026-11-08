@@ -72,8 +72,10 @@ Roughly ordered by severity.
   retry, not a silent switch to another model.
 - **P2 — No retry/backoff within one model.** The chain moves on instead of retrying,
   and malformed JSON from a model that *did* answer is not retried on the next model.
-- **P2 — No automated tests.** No unit tests, no end-to-end tests. Regressions are
-  currently caught by hand.
+- **P2 — No automated tests.** No unit tests, no end-to-end tests. CI now catches type
+  errors and build breaks on every PR, but behavior regressions are still caught by hand.
+- **P2 — Node 20 is past end-of-life** (April 2026). `engines` in both `package.json`
+  files says `>=20` and CI tests Node 20, the minimum. Move both (and CI) to Node 22+.
 - **P2 — Long contracts and scans are only partly read.** Text past 50,000 characters and
   scanned pages past 8 are not analyzed (the user is told). Scanned requests are larger and
   use more AI quota than text; there is no OCR, so a scan is only as readable as the model
@@ -119,6 +121,10 @@ Roughly ordered by severity.
 - [x] Disable "Take the quiz" (with a spinner + note) until the summary has finished
       streaming; it used to silently do nothing.
 - [x] Add a favicon (removes the `/favicon.ico` 404).
+- [x] GitHub Actions CI on every PR/push to `main`: `npm ci`, typecheck and build for
+      frontend and backend (no API keys, no AI calls), plus a README status badge.
+- [ ] Branch protection on `main`: require a pull request and the two CI checks (set up
+      with `gh` after the CI PR merges and has run on `main`).
 - [ ] Retry on the next model when a model answers with malformed JSON, not only
       when it errors or times out.
 

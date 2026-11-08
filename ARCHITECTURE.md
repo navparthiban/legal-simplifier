@@ -68,6 +68,7 @@ legal-simplifier/
 │   └── package.json / tsconfig*.json
 │
 ├── SampleRentalAgreement.pdf     # canonical sample (the copy in frontend/public is what ships)
+├── .github/workflows/ci.yml       # CI: typecheck + build frontend and backend on PRs / pushes to main
 ├── render.yaml                    # Render Blueprint — deploys backend/
 ├── netlify.toml                   # Netlify build config — deploys frontend/
 ├── docs/superpowers/             # spec + plan for the single-file → frontend/backend port
@@ -239,6 +240,18 @@ the prompt wording is unchanged. Text-only models are skipped for image requests
 
 `render.yaml` / `netlify.toml` deploy `backend/` and `frontend/` respectively
 — see README.md "Deploying".
+
+## CI (`.github/workflows/ci.yml`)
+
+Runs on every pull request to `main` and every push to `main`. One job, run as a
+matrix over `frontend` and `backend` (in parallel, `fail-fast: false`): checkout →
+`actions/setup-node` (Node 20, the minimum in both `package.json` `engines`, with the npm
+cache keyed on that package's `package-lock.json`) → `npm ci` → `npm run typecheck` →
+`npm run build`. The checks are named `build (frontend)` and `build (backend)`; those
+exact names are what branch protection on `main` requires. The workflow has read-only
+repo permissions, no secrets and no env vars, so it never touches Gemini or OpenRouter
+(typecheck and build don't start the server). A newer push to the same ref cancels the
+older run (`concurrency`). There are no tests in CI yet — see PRD.md.
 
 ## Key Functions (by role)
 

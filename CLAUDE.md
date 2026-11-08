@@ -25,6 +25,11 @@ TypeScript)** pair. The backend is the only AI client; the API keys
 (`GEMINI_API_KEY`, `OPENROUTER_KEY`) live in `backend/.env` (gitignored) and are
 never shipped to the browser.
 
+**CI:** `.github/workflows/ci.yml` runs `npm ci`, `npm run typecheck` and
+`npm run build` for `frontend/` and `backend/` (Node 20) on every PR to `main` and push
+to `main`. It uses no secrets and makes no AI calls. `main` changes only through a pull
+request whose `build (frontend)` and `build (backend)` checks pass (branch protection).
+
 > This app was ported from a single `index.html` (all HTML/CSS/JS in one file,
 > OpenRouter key hardcoded client-side) with a strict zero-drift parity
 > guarantee. That file has been removed; its git history plus
