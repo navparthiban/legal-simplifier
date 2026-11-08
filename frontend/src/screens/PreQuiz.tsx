@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Screen } from '../components/Screen';
 import { QuizQuestion } from '../components/QuizQuestion';
+import { TruncationNote } from '../components/TruncationNote';
 import { useApp } from '../state/AppContext';
 import { useTranslation } from '../i18n/useTranslation';
 import { preQuizResult } from '../lib/scoreCopy';
@@ -56,6 +57,8 @@ export function PreQuiz() {
               <h2>{t('prequiz-h2')}</h2>
               <p>{t('prequiz-p')}</p>
             </div>
+
+            <TruncationNote />
 
             <div
               className="prequiz-intro"

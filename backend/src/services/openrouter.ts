@@ -130,8 +130,12 @@ Rights: ${(s.rights || []).join(' | ')}
 Risks: ${(s.risks || []).map((r) => r.title + ': ' + r.description).join(' | ')}
       `.trim();
 
+/** One image (data URL) or several pages of a scanned PDF. */
+const pagesOf = (content: string | string[]) => (Array.isArray(content) ? content : [content]);
+const textOf = (content: string | string[]) => (Array.isArray(content) ? content.join('\n\n') : content);
+
 export function buildSummaryMessages(
-  content: string,
+  content: string | string[],
   isImage: boolean,
   language: Language,
 ): ChatMessage[] {
@@ -143,19 +147,19 @@ export function buildSummaryMessages(
         role: 'user',
         content: [
           { type: 'text', text: 'Here is the contract image. Analyse it and return the JSON.' },
-          { type: 'image_url', image_url: { url: content } },
+          ...pagesOf(content).map((url) => ({ type: 'image_url' as const, image_url: { url } })),
         ],
       },
     ];
   }
   return [
     { role: 'system', content: systemPrompt },
-    { role: 'user', content: `Here is the contract text:\n\n${content}` },
+    { role: 'user', content: `Here is the contract text:\n\n${textOf(content)}` },
   ];
 }
 
 export function buildPreQuizMessages(
-  content: string,
+  content: string | string[],
   isImage: boolean,
   language: Language,
 ): ChatMessage[] {
@@ -170,14 +174,14 @@ export function buildPreQuizMessages(
             type: 'text',
             text: 'Here is the contract image. Generate 5 quiz questions based on the original legal language.',
           },
-          { type: 'image_url', image_url: { url: content } },
+          ...pagesOf(content).map((url) => ({ type: 'image_url' as const, image_url: { url } })),
         ],
       },
     ];
   }
   return [
     { role: 'system', content: systemPrompt },
-    { role: 'user', content: `Here is the contract text:\n\n${content}` },
+    { role: 'user', content: `Here is the contract text:\n\n${textOf(content)}` },
   ];
 }
 

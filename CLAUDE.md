@@ -57,8 +57,9 @@ Full details in `ARCHITECTURE.md`. Summary:
 1. User uploads a PDF/image, or clicks "Try a Sample Contract" (which does
    `fetch('/SampleRentalAgreement.pdf')` from `frontend/public/` — no base64
    literal any more).
-2. `AppContext.handleFile(file)` dispatches to `lib/pdf.extractPdfText()`
-   (pdfjs-dist) or `lib/image.encodeImageBase64()`.
+2. `AppContext.handleFile(file)` dispatches to `lib/pdf.readPdf()` (pdfjs-dist; returns
+   text, or — for a scanned PDF — up to 8 page JPEGs) or `lib/image.encodeImageBase64()`.
+   If the contract was cut off, `contract.truncation` drives `<TruncationNote/>`.
 3. `POST /api/prequiz` generates a quiz from the raw contract text, answered
    before the user sees any summary. As soon as the pre-quiz appears,
    `AppContext.runSummary` starts the summary in the background (hidden until the
@@ -88,7 +89,8 @@ Full details in `ARCHITECTURE.md`. Summary:
   summary timeout is time-to-first-chunk. Models that can't read images are skipped
   for image uploads. The winning model is logged per request. Prompts and parsers
   stay in `services/openrouter.ts`. Images use the vision `image_url` content block;
-  PDFs use plain text messages.
+  PDFs use plain text messages, except scanned PDFs, which are sent as an array of page
+  images (`content: string[]`, one `image_url` block per page).
 
 ### Key implementation details
 
@@ -104,7 +106,10 @@ Full details in `ARCHITECTURE.md`. Summary:
   data-flow** behavior stable unless a change is intentional and documented;
   the `TRANSLATIONS` dict is now editable but keep EN and ES in sync. The
   original is recoverable from git history.
-- **PDF text cap:** 12,000 characters (`lib/pdf.extractPdfText`).
+- **PDF limits (`lib/pdf.ts`):** text is capped at 50,000 characters (cut at a word
+  boundary); a PDF averaging < 40 non-space characters per page is treated as scanned
+  and its first 8 pages are rendered to JPEG (≤1600 px, quality 0.7, ≤8 MB total). Both
+  set `contract.truncation` when they cut something off.
 - **JSON parsing:** `lib/parseJSON.parseJSON` (summary) and
   `services/openrouter.ts` `parsePreQuizJSON` / `parseQuizJSON` (quizzes) strip
   ` ```json ` fences, isolate the first `{...}` / `[...]` block, and tolerate

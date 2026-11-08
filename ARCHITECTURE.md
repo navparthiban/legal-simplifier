@@ -52,7 +52,7 @@ legal-simplifier/
 │   │   ├── state/AppContext.tsx # all app state + the flow functions (see below)
 │   │   ├── lib/
 │   │   │   ├── api.ts           # fetch wrappers → backend (prequiz / summary stream / quiz) + wakeBackend()
-│   │   │   ├── pdf.ts           # extractPdfText (pdfjs-dist, 12k cap)  — verbatim
+│   │   │   ├── pdf.ts           # readPdf: text (50k-char cap) or, for scans, page JPEGs (8-page cap)
 │   │   │   ├── pdfWorker.ts     # sets pdfjs workerSrc to the cdnjs 3.11.174 worker
 │   │   │   ├── image.ts         # encodeImageBase64 — verbatim
 │   │   │   ├── parseJSON.ts     # final summary JSON parse — verbatim
@@ -60,7 +60,7 @@ legal-simplifier/
 │   │   │   ├── quiz.ts          # validateQuestions, escHtml — verbatim
 │   │   │   ├── scoreCopy.ts     # pre-quiz / quiz / comparison copy logic — verbatim
 │   │   │   └── types.ts         # Question, SummaryData, StreamingPartial
-│   │   ├── components/          # Nav, Footer, Screen, QuizQuestion, SummaryLists
+│   │   ├── components/          # Nav, Footer, Screen, QuizQuestion, SummaryLists, TruncationNote
 │   │   └── screens/             # Home, Upload, Loading, PreQuiz, Summary, Quiz, Compare
 │   ├── vite.config.ts           # dev proxy: /api and /health → http://localhost:8787
 │   └── package.json / tsconfig*.json
@@ -111,9 +111,13 @@ Upload (or "Try a Sample Contract" → fetch('/SampleRentalAgreement.pdf'))
         │
         ▼
 AppContext.handleFile(file)
-   ├─ file.type 'application/pdf' → lib/pdf.extractPdfText()   (12k cap)
+   ├─ file.type 'application/pdf' → lib/pdf.readPdf()
+   │     · text PDF   → text, cut at a word boundary past 50,000 chars
+   │     · scanned PDF (avg < 40 non-space chars/page) → first 8 pages rendered
+   │       to JPEG data URLs in the browser (content is an array, isImage true)
    └─ file.type 'image/*'         → lib/image.encodeImageBase64()  (data URL)
-        │  sets { fileName, content, isImage }
+        │  sets { fileName, content, isImage, truncation }
+        │  (truncation → <TruncationNote/> on the PreQuiz + Summary screens, EN/ES)
         ▼
 POST /api/prequiz { content, isImage, language }
    backend: buildPreQuizMessages → chatCompletion → parsePreQuizJSON
@@ -186,7 +190,7 @@ Both end with `nvidia/nemotron-3.5-super-vl:free` (reads images) and
 
 | Route | Body | Returns |
 |---|---|---|
-| `POST /api/prequiz` | `{ content: string, isImage: boolean, language: 'en'\|'es' }` | `{ questions: [...] }` |
+| `POST /api/prequiz` | `{ content: string \| string[], isImage: boolean, language: 'en'\|'es' }` | `{ questions: [...] }` |
 | `POST /api/summary` | `{ content, isImage, language }` | `text/event-stream` — the winning model's SSE stream, relayed unchanged |
 | `POST /api/quiz` | `{ summaryData: {...}, language }` | `{ questions: [...] }` |
 | `GET /health` | — | `{ ok: true }` — no AI call; pinged once on page load by `wakeBackend()` and used as Render's health check |
@@ -197,8 +201,11 @@ from `index.html` (`err?.error?.message` from the provider, else
 `The AI returned an unexpected response. Please try again.`).
 
 Image contracts are sent as base64 data URLs in the `content` field with
-`isImage: true`; the backend forwards them in OpenRouter's vision
-`image_url` message format (Gemini's OpenAI-compatible endpoint takes the same shape).
+`isImage: true`; the backend forwards them in the vision `image_url` message format
+(Gemini's OpenAI-compatible endpoint takes the same shape). `content` is a single
+string for text or a one-image upload, or an **array of strings** — one data URL
+per page — for a scanned PDF; the backend emits one `image_url` block per page and
+the prompt wording is unchanged. Text-only models are skipped for image requests.
 
 ## Configuration
 
@@ -228,8 +235,10 @@ summary while the user answers the pre-quiz) and `runQuiz` (starts when the summ
 finishes). Stale results are dropped via a generation counter (`genRef`) and
 `AbortController`s, so a new upload or language change can't show an old result.
 
-**File input** — `lib/pdf.extractPdfText` (pdfjs-dist, 12,000-char cap),
-`lib/image.encodeImageBase64`.
+**File input** — `lib/pdf.readPdf` (pdfjs-dist): `MAX_TEXT_CHARS = 50_000`,
+scan detection `SCAN_AVG_CHARS_PER_PAGE = 40` (judged by the per-page average so a
+"Scanned with …" footer or page numbers don't hide a scan), `MAX_SCAN_PAGES = 8`,
+pages rendered at ≤1600 px, JPEG quality 0.7, ≤8 MB total. `lib/image.encodeImageBase64`.
 
 **AI calls** (`lib/api.ts` → backend) — `fetchPreQuiz`, `streamSummary`,
 `fetchQuiz` (the last two take an optional `AbortSignal`). The model chain lives in

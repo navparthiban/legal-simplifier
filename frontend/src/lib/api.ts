@@ -45,7 +45,8 @@ async function errorFromResponse(res: Response): Promise<Error> {
 }
 
 interface ContractInput {
-  content: string;
+  /** Text, one image data URL, or several image data URLs (scanned PDF pages). */
+  content: string | string[];
   isImage: boolean;
   language: Language;
 }

@@ -17,7 +17,9 @@ see how much your understanding actually improved.
 
 ## Features
 
-- **Upload a contract** — drag-and-drop or browse for a PDF or image.
+- **Upload a contract** — drag-and-drop or browse for a PDF or image. Scanned PDFs
+  work too (the first 8 pages are read as images), and if a contract is too long to
+  analyze in full (over ~50,000 characters / 8 scanned pages) you're told so.
 - **Plain-language summary** — obligations, deadlines, rights, and risk flags,
   streamed in as the AI generates them. It starts generating while you answer the
   pre-reading quiz, so it's usually ready when you click.

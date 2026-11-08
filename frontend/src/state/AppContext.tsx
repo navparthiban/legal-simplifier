@@ -10,12 +10,12 @@ import {
 } from 'react';
 import { translate, type Language } from '../i18n/translations';
 import { fetchPreQuiz, fetchQuiz, streamSummary } from '../lib/api';
-import { extractPdfText } from '../lib/pdf';
+import { readPdf } from '../lib/pdf';
 import { encodeImageBase64 } from '../lib/image';
 import { parseJSON } from '../lib/parseJSON';
 import { _sumExtractPartial } from '../lib/summaryStream';
 import { validateQuestions } from '../lib/quiz';
-import type { Question, StreamingPartial, SummaryData } from '../lib/types';
+import type { Question, StreamingPartial, SummaryData, Truncation } from '../lib/types';
 
 export type ScreenName =
   | 'home'
@@ -30,8 +30,11 @@ const FADE = 180; // ms — matches index.html showScreen()
 
 interface Contract {
   fileName: string;
-  content: string;
+  /** Contract text, one image data URL, or several (pages of a scanned PDF). */
+  content: string | string[];
   isImage: boolean;
+  /** Set when the contract was too long to analyze in full. */
+  truncation: Truncation | null;
 }
 
 interface AppState {
@@ -281,12 +284,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       try {
         setLoadingLabel(t('loading-reading'));
-        let content: string;
+        let content: string | string[];
         let isImage: boolean;
+        let truncation: Truncation | null = null;
 
         if (file.type === 'application/pdf') {
-          content = await extractPdfText(file);
-          isImage = false;
+          const pdf = await readPdf(file);
+          content = pdf.content;
+          isImage = pdf.kind === 'images'; // scanned PDF → page images
+          if (pdf.truncated) {
+            truncation =
+              pdf.kind === 'images'
+                ? { kind: 'pages', used: pdf.pagesUsed, total: pdf.pagesTotal }
+                : { kind: 'text' };
+          }
         } else if (file.type.startsWith('image/')) {
           content = await encodeImageBase64(file);
           isImage = true;
@@ -294,7 +305,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           throw new Error('Unsupported file type. Please upload a PDF or image.');
         }
 
-        const c: Contract = { fileName: file.name, content, isImage };
+        const c: Contract = { fileName: file.name, content, isImage, truncation };
         setContract(c);
         setSummaryData(null);
         setStreamingPartial(null);

@@ -33,3 +33,6 @@ export interface StreamingPartial {
   rights: string[] | null;
   risks: Risk[] | null;
 }
+
+/** What was cut off when a contract was too long to analyze in full. */
+export type Truncation = { kind: 'text' } | { kind: 'pages'; used: number; total: number };

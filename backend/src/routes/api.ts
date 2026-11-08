@@ -16,6 +16,12 @@ function normLanguage(v: unknown): Language {
   return v === 'es' ? 'es' : 'en';
 }
 
+/** A non-empty string, or a non-empty array of non-empty strings (scanned-PDF pages). */
+function validContent(c: unknown): c is string | string[] {
+  if (typeof c === 'string') return c.length > 0;
+  return Array.isArray(c) && c.length > 0 && c.every((x) => typeof x === 'string' && x.length > 0);
+}
+
 function fail(res: Response, err: unknown) {
   const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
   res.status(502).json({ error: message });
@@ -24,7 +30,7 @@ function fail(res: Response, err: unknown) {
 /** POST /api/prequiz — quiz generated from the raw contract text/image. */
 api.post('/prequiz', async (req: Request, res: Response) => {
   const { content, isImage, language } = req.body ?? {};
-  if (typeof content !== 'string' || !content) {
+  if (!validContent(content)) {
     return res.status(400).json({ error: 'Missing contract content.' });
   }
   try {
@@ -64,7 +70,7 @@ api.post('/quiz', async (req: Request, res: Response) => {
  */
 api.post('/summary', async (req: Request, res: Response) => {
   const { content, isImage, language } = req.body ?? {};
-  if (typeof content !== 'string' || !content) {
+  if (!validContent(content)) {
     return res.status(400).json({ error: 'Missing contract content.' });
   }
   try {

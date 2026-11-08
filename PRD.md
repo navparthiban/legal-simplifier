@@ -24,7 +24,10 @@ No persistence, no accounts — same as before.
 
 **Working today:**
 - Upload flow (drag-and-drop or browse) for PDF and image contracts.
-- PDF text extraction via PDF.js; images sent to the AI as vision input.
+- PDF text extraction via PDF.js, up to 50,000 characters (≈15–20 pages); longer contracts
+  show a short EN/ES note that only the first part was analyzed.
+- Scanned PDFs (no real text) are rendered to page images in the browser (first 8 pages)
+  and sent down the image path; images sent to the AI as vision input.
 - AI-generated plain-language summary (obligations / deadlines / rights / risk
   flags), streamed into the UI as it's generated.
 - Model fallback chain (fast order for the pre-quiz, quality order for the rest),
@@ -64,6 +67,11 @@ Roughly ordered by severity.
   and malformed JSON from a model that *did* answer is not retried on the next model.
 - **P2 — No automated tests.** No unit tests, no end-to-end tests. Regressions are
   currently caught by hand.
+- **P2 — Long contracts and scans are only partly read.** Text past 50,000 characters and
+  scanned pages past 8 are not analyzed (the user is told). Scanned requests are larger and
+  use more AI quota than text; there is no OCR, so a scan is only as readable as the model
+  finds the page image. Image requests were only exercised against Gemini; the OpenRouter
+  vision fallback has not been tried with multi-page input.
 - **P2 — No persistence.** Nothing is saved between sessions — re-uploading a
   contract re-runs the full AI pipeline and costs tokens again.
 - **P2 — Accessibility unaudited.** No explicit ARIA/keyboard-nav pass has been
@@ -93,6 +101,9 @@ Roughly ordered by severity.
 - [x] Drop `nvidia/nemotron-3-super-120b-a12b:free` (404 as of 2026-11-07).
 - [x] Start gemini-3.7-flash / 3.8-flash at `reasoning_effort=low` (they reject `minimal`).
 - [x] Wake the sleeping Render backend on page load (`wakeBackend()` → `/health`).
+- [x] Raise the PDF text cap from 12,000 to 50,000 characters and tell the user when a
+      contract was cut off.
+- [x] Support scanned PDFs by rendering up to 8 pages to images in the browser.
 - [ ] Retry on the next model when a model answers with malformed JSON, not only
       when it errors or times out.
 

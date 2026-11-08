@@ -1,5 +1,6 @@
 import { Screen } from '../components/Screen';
 import { RiskList, SummaryList } from '../components/SummaryLists';
+import { TruncationNote } from '../components/TruncationNote';
 import { useApp } from '../state/AppContext';
 import { useTranslation } from '../i18n/useTranslation';
 import type { PartialStr } from '../lib/types';
@@ -73,6 +74,8 @@ export function Summary() {
             <span id="sumFilename">{filename}</span>
           </span>
         </div>
+
+        <TruncationNote />
 
         <h1
           className={`summary-title${titleS.cursor ? ' stream-cursor' : ''}`}
