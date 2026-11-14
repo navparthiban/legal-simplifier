@@ -45,6 +45,10 @@ No persistence, no accounts — same as before.
   is still on the homepage. Remaining gap: a user who uploads within seconds of landing
   can still wait for the rest of the 30–60s wake-up.
 - XSS protection on AI-returned text via `escHtml()` before it hits `innerHTML`.
+- Abuse protection: the `/api` routes are rate-limited per IP (30 requests per 15 min by
+  default; past it the user sees a translated "wait a few minutes" message and no AI call
+  is made), and the backend rejects input the real frontend could never send (text over
+  60,000 chars, more than 8 image pages, non-image data, junk summary fields).
 
 ## Known Gaps / Risks
 
@@ -78,6 +82,12 @@ Roughly ordered by severity.
   `NODE_VERSION=24`, but Render only applies it if the service is managed by the Blueprint;
   otherwise it uses the newest Node allowed by `engines` (`>=24`, probably 26 already).
   Check Blueprints / the service's Environment tab and the first lines of the next deploy log.
+- **P2 — Rate limit is per-IP and in memory.** The counter resets when the server
+  restarts or sleeps, and visitors behind one shared IP (an office, a school) share one
+  limit. It only works per visitor if Express sees the real IP: `render.yaml` sets
+  `TRUST_PROXY=1`, but whether Render needs `1` or more hops is not confirmed yet. After the
+  next deploy, check that the `[rate-limit] blocked <ip>` log line shows a visitor's real
+  public IP, not a Render/Cloudflare address.
 - **P2 — Node 24 reaches end-of-life in April 2028.** Move `engines`, CI, `netlify.toml` and
   `render.yaml` to the next LTS (Node 26) well before then.
 - **P2 — CI could be pinned harder.** Actions are on major tags (`@v7`), not commit SHAs,
@@ -131,6 +141,8 @@ Roughly ordered by severity.
       frontend and backend (no API keys, no AI calls), plus a README status badge.
 - [x] Branch protection on `main`: require a pull request and the two CI checks (set up
       with `gh` after the CI PR merges and has run on `main`).
+- [x] Protect the backend from abuse: per-IP rate limit on `/api` (`express-rate-limit`,
+      `TRUST_PROXY` for Render) and input checks in `services/validate.ts`.
 - [ ] Retry on the next model when a model answers with malformed JSON, not only
       when it errors or times out.
 

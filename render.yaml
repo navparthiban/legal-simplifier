@@ -22,3 +22,5 @@ services:
         sync: false
       - key: CORS_ORIGIN
         sync: false
+      - key: TRUST_PROXY # Render's proxy hop; lets the rate limit see each visitor's real IP
+        value: "1"

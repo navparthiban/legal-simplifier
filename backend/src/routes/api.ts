@@ -7,19 +7,13 @@ import {
   parsePreQuizJSON,
   parseQuizJSON,
   type Language,
-  type SummaryData,
 } from '../services/openrouter.js';
+import { checkContent, cleanSummaryData } from '../services/validate.js';
 
 export const api = Router();
 
 function normLanguage(v: unknown): Language {
   return v === 'es' ? 'es' : 'en';
-}
-
-/** A non-empty string, or a non-empty array of non-empty strings (scanned-PDF pages). */
-function validContent(c: unknown): c is string | string[] {
-  if (typeof c === 'string') return c.length > 0;
-  return Array.isArray(c) && c.length > 0 && c.every((x) => typeof x === 'string' && x.length > 0);
 }
 
 function fail(res: Response, err: unknown) {
@@ -30,12 +24,13 @@ function fail(res: Response, err: unknown) {
 /** POST /api/prequiz — quiz generated from the raw contract text/image. */
 api.post('/prequiz', async (req: Request, res: Response) => {
   const { content, isImage, language } = req.body ?? {};
-  if (!validContent(content)) {
-    return res.status(400).json({ error: 'Missing contract content.' });
+  const checked = checkContent(content, Boolean(isImage));
+  if (!checked.ok) {
+    return res.status(400).json({ error: checked.error });
   }
   try {
     const raw = await chatCompletion(
-      buildPreQuizMessages(content, Boolean(isImage), normLanguage(language)),
+      buildPreQuizMessages(checked.content, Boolean(isImage), normLanguage(language)),
       { chain: 'fast', isImage: Boolean(isImage), label: 'prequiz' },
     );
     res.json({ questions: parsePreQuizJSON(raw) });
@@ -47,12 +42,13 @@ api.post('/prequiz', async (req: Request, res: Response) => {
 /** POST /api/quiz — quiz generated from the generated summary. */
 api.post('/quiz', async (req: Request, res: Response) => {
   const { summaryData, language } = req.body ?? {};
-  if (!summaryData || typeof summaryData !== 'object') {
+  const clean = cleanSummaryData(summaryData);
+  if (!clean) {
     return res.status(400).json({ error: 'Missing summary data.' });
   }
   try {
     const raw = await chatCompletion(
-      buildQuizMessages(summaryData as SummaryData, normLanguage(language)),
+      buildQuizMessages(clean, normLanguage(language)),
       { chain: 'quality', isImage: false, label: 'quiz' },
     );
     res.json({ questions: parseQuizJSON(raw) });
@@ -70,12 +66,13 @@ api.post('/quiz', async (req: Request, res: Response) => {
  */
 api.post('/summary', async (req: Request, res: Response) => {
   const { content, isImage, language } = req.body ?? {};
-  if (!validContent(content)) {
-    return res.status(400).json({ error: 'Missing contract content.' });
+  const checked = checkContent(content, Boolean(isImage));
+  if (!checked.ok) {
+    return res.status(400).json({ error: checked.error });
   }
   try {
     const stream = await chatCompletionStream(
-      buildSummaryMessages(content, Boolean(isImage), normLanguage(language)),
+      buildSummaryMessages(checked.content, Boolean(isImage), normLanguage(language)),
       { chain: 'quality', isImage: Boolean(isImage), label: 'summary' },
     );
 
