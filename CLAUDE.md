@@ -41,7 +41,7 @@ request whose `build (frontend)` and `build (backend)` checks pass (branch prote
 ### Current structure
 
 ```
-backend/   Express + TS. src/server.ts, src/routes/api.ts, src/services/{llm,openrouter}.ts
+backend/   Express + TS. src/server.ts, src/routes/api.ts, src/middleware/rateLimit.ts, src/services/{llm,openrouter,validate}.ts
 frontend/  Vite + React + TS. src/{screens,components,lib,i18n,state,styles}
 ```
 
@@ -135,6 +135,11 @@ Full details in `ARCHITECTURE.md`. Summary:
   `streamingPartial`, `summaryData`, `quizQuestions`/`quizPicks`, `error` (a translation
   *key*, shown by `<ErrorBanner/>`). Screen-local state resets on navigation because only
   the active screen mounts.
+- **Abuse protection:** `/api` is rate-limited per IP by `backend/src/middleware/rateLimit.ts`
+  (30 per 15 min; `RATE_LIMIT_MAX` / `RATE_LIMIT_WINDOW_MIN`; in memory) → 429 JSON, which the
+  frontend shows as `err-rate-limit`. `/health` is not limited. `TRUST_PROXY` (set to `1` in
+  `render.yaml`) makes Express see the real IP behind Render's proxy. Input is checked before
+  any model call by `backend/src/services/validate.ts` (`checkContent`, `cleanSummaryData`) → 400.
 - **Errors & copy rules:** never use `window.alert`; show failures through
   `<ErrorBanner/>` with an `err-*` key (throw `UserError(key)` from `lib/`). No hardcoded
   English in the UI — every visible string goes through `TRANSLATIONS` in both EN and ES.

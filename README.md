@@ -129,6 +129,10 @@ at the repo root hold the config for each.
   out, the backend notes it (`[ai] … hit its quota/rate limit — skipping it for …` in the
   log) and skips that model for a while, falling back to the next one. It still works,
   but a paid Gemini key is the real fix if you expect steady traffic.
+- The `/api` routes are rate-limited per visitor IP (30 requests per 15 minutes by
+  default; change with `RATE_LIMIT_MAX` / `RATE_LIMIT_WINDOW_MIN`), so one person can't
+  use up the whole quota. `render.yaml` sets `TRUST_PROXY=1` so the limit sees each
+  visitor's real IP behind Render's proxy — set it yourself if you created the service by hand.
 
 **2. Frontend → Netlify**
 - [netlify.com](https://netlify.com) → **Add new site → Import an existing

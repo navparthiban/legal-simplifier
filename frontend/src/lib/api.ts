@@ -8,6 +8,7 @@
  * response.body (a ReadableStream), not EventSource.
  */
 import type { Language } from '../i18n/translations';
+import { UserError } from './errors';
 import type { Question, SummaryData } from './types';
 
 /**
@@ -36,6 +37,8 @@ export function wakeBackend(): void {
 }
 
 async function errorFromResponse(res: Response): Promise<Error> {
+  // The backend's per-IP rate limit (see backend/src/middleware/rateLimit.ts).
+  if (res.status === 429) return new UserError('err-rate-limit');
   const err = await res.json().catch(() => ({}) as any);
   const msg =
     (typeof err?.error === 'string' && err.error) ||

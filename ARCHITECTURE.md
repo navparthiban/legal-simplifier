@@ -30,13 +30,15 @@ README.md "Deploying").
 legal-simplifier/
 ├── backend/                       # Express + TypeScript — the only AI client (Gemini → OpenRouter chain)
 │   ├── src/
-│   │   ├── server.ts              # Express app: cors, express.json(15mb), mounts /api, :8787
+│   │   ├── server.ts              # Express app: trust proxy, cors, express.json(15mb), mounts /api (rate-limited), :8787
 │   │   ├── routes/api.ts          # POST /api/prequiz, /api/summary (SSE passthrough), /api/quiz
+│   │   ├── middleware/rateLimit.ts # apiLimiter: per-IP limit on /api (express-rate-limit, in memory)
 │   │   └── services/
 │   │       ├── llm.ts             # model fallback chain: chatCompletion / chatCompletionStream, keys, timeouts, logging
-│   │       └── openrouter.ts      # system prompts, message builders, response parsers (name is historical)
+│   │       ├── openrouter.ts      # system prompts, message builders, response parsers (name is historical)
+│   │       └── validate.ts        # input checks: checkContent, cleanSummaryData (pure functions)
 │   ├── .env                       # GEMINI_API_KEY=..., OPENROUTER_KEY=...  (gitignored)
-│   ├── .env.example               # both keys blank (committed)
+│   ├── .env.example               # both keys blank + optional settings (committed)
 │   ├── package.json / tsconfig.json
 │
 ├── frontend/                      # Vite + React + TypeScript
@@ -219,6 +221,27 @@ from `index.html` (`err?.error?.message` from the provider, else
 `API error (<status>). Please try again.`, else the parser's
 `The AI returned an unexpected response. Please try again.`).
 
+**Rate limit** (`backend/src/middleware/rateLimit.ts`). Every `/api/*` request counts
+toward a per-IP limit: 30 requests per 15 minutes by default (`RATE_LIMIT_MAX`,
+`RATE_LIMIT_WINDOW_MIN`). One contract uses 3 (pre-quiz, summary, quiz). Past the limit
+the backend answers **429** `{ error: 'Too many requests. Please try again later.' }`
+without calling any model, and logs `[rate-limit] blocked <ip> on <path>`. Responses
+carry the standard `RateLimit-*` headers (no legacy `X-RateLimit-*`). `/health` is not
+limited. The counter is kept in memory, so it resets when the server restarts or sleeps.
+Behind a proxy (Render), `TRUST_PROXY` must be set so `req.ip` is the visitor's IP and
+not the proxy's.
+
+**Input checks** (`backend/src/services/validate.ts`) run before any model call and
+answer **400** `{ error }`:
+- `checkContent(content, isImage)` (`/api/prequiz`, `/api/summary`): text must be a
+  string of 1–60,000 characters (the frontend caps at 50,000); an image must be one
+  string, or an array of at most 8 strings, each starting with `data:image/`.
+- `cleanSummaryData(raw)` (`/api/quiz`): builds a fresh `SummaryData` with only the
+  known fields — `title` / `parties` (strings, cut at 500 chars), `obligations` /
+  `deadlines` / `rights` (string arrays, max 10 items of 1,000 chars), `risks`
+  (`{ title, description }`, max 10, same caps). Unknown fields and wrong types are
+  dropped; if nothing usable is left → `Missing summary data.`
+
 Image contracts are sent as base64 data URLs in the `content` field with
 `isImage: true`; the backend forwards them in the vision `image_url` message format
 (Gemini's OpenAI-compatible endpoint takes the same shape). `content` is a single
@@ -235,6 +258,9 @@ the prompt wording is unchanged. Text-only models are skipped for image requests
 | `PORT` | `backend/.env` | backend listen port (Render sets its own) |
 | `APP_URL` | `backend/.env` | `HTTP-Referer` sent to OpenRouter |
 | `CORS_ORIGIN` | `backend/.env` | restricts the backend to one origin; unset = any |
+| `RATE_LIMIT_MAX` | `backend/.env` / Render | `/api` requests allowed per IP per window (default 30) |
+| `RATE_LIMIT_WINDOW_MIN` | `backend/.env` / Render | length of the rate-limit window in minutes (default 15) |
+| `TRUST_PROXY` | `render.yaml` (`"1"`) | number of proxy hops in front of the backend, passed to Express `trust proxy` so the rate limit sees real visitor IPs. Unset locally (no proxy) |
 | `VITE_API_BASE` | `frontend/.env` / build-time | prefixes every `/api/*` call **and the `/health` wake-up ping** in the **built** bundle — set this to the deployed backend's URL. Unset in local dev, where relative paths go through the Vite proxy instead |
 | `VITE_BACKEND_URL` | shell env before `npm run dev` | only affects `vite.config.ts`'s **dev-server proxy target**, not the built bundle |
 | `NODE_VERSION` | `netlify.toml` `[build.environment]` / `render.yaml` `envVars` | pins the deploy Node version to `24` (matches `engines` and CI). `netlify.toml` overrides the Netlify dashboard; Render only applies the Blueprint value if the service is Blueprint-managed, otherwise set it in the service's Environment |
@@ -274,7 +300,10 @@ Upload (bad/unreadable file, sample failed, pre-quiz failed, server unreachable)
 PreQuiz above "See summary" (summary failed), Summary above "Take the quiz" (quiz
 failed). `lib/pdf.ts` / `lib/image.ts` throw `UserError(key)`; `AppContext.errorKeyFor`
 maps `UserError` → its key, a fetch `TypeError` → `err-network`, anything else → the
-flow's fallback key (`err-generic`, `err-prequiz`, `err-summary`, `err-quiz`). The raw
+flow's fallback key (`err-generic`, `err-prequiz`, `err-summary`, `err-quiz`). A **429**
+from the backend's rate limit becomes `UserError('err-rate-limit')` in
+`lib/api.ts` `errorFromResponse`, so it shows "wait a few minutes" instead of the
+flow's generic message. The raw
 server message is only `console.error`-ed (it's English, so it isn't shown in the UI).
 The `err-*` keys live in `TRANSLATIONS` in both languages. `showScreen` also cancels a
 pending swap when asked for the screen it's already on, so a request that fails
@@ -320,6 +349,7 @@ and the comparison delta branching.
 - **Google Fonts** — Newsreader + Libre Franklin, `<link>`ed in
   `frontend/index.html` (preconnect + one stylesheet).
 - **React 18 / Vite 5** (frontend), **Express 4** (backend), TypeScript on both.
+- **express-rate-limit 8** (backend npm dep) — the per-IP limit on `/api`.
 - **Gemini API** (OpenAI-compatible endpoint) — `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`,
   called from the backend only; first in every chain.
 - **OpenRouter API** — `https://openrouter.ai/api/v1/chat/completions`, `:free` models
