@@ -43,6 +43,7 @@ see how much your understanding actually improved.
   browser. Each request tries a chain of [Gemini](https://ai.google.dev/) models
   first and falls back to [OpenRouter](https://openrouter.ai/) `:free` models if
   they all fail (see `ARCHITECTURE.md`).
+- **Tests** — [Vitest](https://vitest.dev) unit tests in both packages (`npm test`).
 - No database — nothing is persisted between sessions.
 
 ## Running It Locally
@@ -74,6 +75,15 @@ server's proxy at a backend running somewhere else, set `VITE_BACKEND_URL`
 before `npm run dev`. (That's different from `VITE_API_BASE`, below, which is
 baked into a production *build* — dev always uses the proxy.)
 
+### Running the tests
+
+```bash
+cd backend  && npm test       # Vitest: prompts/parsers, input checks, the model fallback chain
+cd frontend && npm test       # Vitest: JSON/stream parsers, quiz helpers, score copy, EN/ES parity
+```
+
+They need no API keys and make no network calls (the backend tests use a fake `fetch`).
+
 ### Production build
 
 ```bash
@@ -89,7 +99,7 @@ told where the backend is — see `VITE_API_BASE` below.
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request to `main` and
 every push to `main`. For both `frontend/` and `backend/` it runs `npm ci`,
-`npm run typecheck` and `npm run build` on Node 24 (the minimum in `package.json`
+`npm run typecheck`, `npm test` and `npm run build` on Node 24 (the minimum in `package.json`
 `engines`) on a pinned `ubuntu-24.04` runner. It needs no API keys and never calls Gemini
 or OpenRouter. The two checks show up on a pull request as `build (frontend)` and
 `build (backend)`.
