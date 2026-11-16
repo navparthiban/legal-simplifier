@@ -125,7 +125,7 @@ AppContext.handleFile(file)
         │  (truncation → <TruncationNote/> on the PreQuiz + Summary screens, EN/ES)
         ▼
 POST /api/prequiz { content, isImage, language }
-   backend: buildPreQuizMessages → chatCompletion → parsePreQuizJSON
+   backend: buildPreQuizMessages → chatCompletion(parse: parsePreQuizJSON + requireQuestions)
         │  → { questions }  → validateQuestions → PreQuiz screen
         │  PreQuiz screen appears; handleFile immediately calls runSummary()
         │  in the background (the summary is NOT shown yet)
@@ -140,7 +140,7 @@ POST /api/summary { content, isImage, language }          ← runs while the use
         │  runQuiz() starts immediately in the background
         ▼
 POST /api/quiz { summaryData, language }                  ← runs while the user
-   backend: buildQuizMessages → chatCompletion → parseQuizJSON   reads the summary
+   backend: buildQuizMessages → chatCompletion(parse: parseQuizJSON + requireQuestions)   reads the summary
         │  → { questions } → validateQuestions → `quizQuestions` state
         ▼
 User clicks "See summary" → AppContext.loadSummary()
@@ -167,6 +167,11 @@ OpenAI-compatible endpoint, `GEMINI_API_KEY`); OpenRouter `:free` models are the
 last resort (`OPENROUTER_KEY`). `openrouter/free` is never used. Because both
 providers speak the OpenAI chat format, the prompts, message shapes, SSE stream
 format and JSON parsers are identical for all of them.
+
+For the pre-quiz and quiz the answer is parsed inside the chain (the `parse`
+argument of `chatCompletion`, using `parsePreQuizJSON` / `parseQuizJSON` plus
+`requireQuestions` from `openrouter.ts`), so malformed JSON or a non-array/empty
+answer also moves on to the next model. The summary stream is not covered.
 
 | Chain | Timeout / model | Used by | Gemini order |
 |---|---|---|---|

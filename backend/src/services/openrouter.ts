@@ -227,3 +227,11 @@ export function parseQuizJSON(raw: string): unknown {
     throw new Error('The AI returned an unexpected response. Please try again.');
   }
 }
+
+/** A quiz answer must be a non-empty array; anything else counts as a bad response. */
+export function requireQuestions(parsed: unknown): unknown[] {
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new Error('The AI returned an unexpected response. Please try again.');
+  }
+  return parsed;
+}

@@ -32,7 +32,8 @@ No persistence, no accounts — same as before.
   flags), streamed into the UI as it's generated.
 - Model fallback chain (fast order for the pre-quiz, quality order for the rest),
   with the winning model logged in the backend terminal. Models that hit a quota limit
-  are skipped for a cooldown.
+  are skipped for a cooldown. A pre-quiz/quiz answer that isn't usable JSON also
+  falls through to the next model.
 - Background generation: the summary starts while the user answers the pre-quiz
   and the post-reading quiz starts as soon as the summary finishes.
 - Pre-reading and post-reading 5-question quizzes, with a before/after score
@@ -74,8 +75,10 @@ Roughly ordered by severity.
 - **P1 — Mid-stream failure ends the summary.** The summary stream commits to the first
   model that sends text; if it dies partway, the user sees a failed summary and a
   retry, not a silent switch to another model.
-- **P2 — No retry/backoff within one model.** The chain moves on instead of retrying,
-  and malformed JSON from a model that *did* answer is not retried on the next model.
+- **P2 — No retry/backoff within one model.** The chain moves on instead of retrying
+  the same model. Malformed JSON from the pre-quiz/quiz now falls through to the next
+  model, but a summary that streams fine and then fails to parse in the browser still
+  needs the user's retry.
 - **P2 — No automated tests.** No unit tests, no end-to-end tests. CI now catches type
   errors and build breaks on every PR, but behavior regressions are still caught by hand.
 - **P2 — Confirm the Render backend really runs Node 24.** `render.yaml` now sets
@@ -143,8 +146,9 @@ Roughly ordered by severity.
       with `gh` after the CI PR merges and has run on `main`).
 - [x] Protect the backend from abuse: per-IP rate limit on `/api` (`express-rate-limit`,
       `TRUST_PROXY` for Render) and input checks in `services/validate.ts`.
-- [ ] Retry on the next model when a model answers with malformed JSON, not only
-      when it errors or times out.
+- [x] Retry on the next model when a model answers with malformed JSON, not only
+      when it errors or times out. Pre-quiz and quiz only; the streamed summary is
+      parsed in the browser, so it is not covered.
 
 ### Design rework (post-parity)
 

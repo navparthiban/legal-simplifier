@@ -98,7 +98,9 @@ Full details in `ARCHITECTURE.md`. Summary:
   skipped for a cooldown (provider's retry time, clamped 15 s–6 h; else 1 h for "per day",
   else 60 s), kept in memory in `llm.ts`. Models that can't read images are skipped
   for image uploads. The winning model is logged per request. Prompts and parsers
-  stay in `services/openrouter.ts`. Images use the vision `image_url` content block;
+  stay in `services/openrouter.ts`. Pre-quiz and quiz answers are parsed inside the chain
+  (`chatCompletion`'s `parse` argument), so malformed JSON falls through to the next
+  model; the streamed summary does not. Images use the vision `image_url` content block;
   PDFs use plain text messages, except scanned PDFs, which are sent as an array of page
   images (`content: string[]`, one `image_url` block per page).
 
