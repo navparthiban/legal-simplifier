@@ -41,6 +41,8 @@ No persistence, no accounts — same as before.
 - EN/ES language toggle with a full UI translation dictionary.
 - "Try Sample Contract" demo mode using a bundled sample rental agreement.
 - Reasonable error handling on API calls (try/catch with user-facing messages).
+- Unit tests run with `npm test` in `frontend/` and `backend/` and on every PR, with no API
+  keys and no AI calls (the backend tests replace `fetch` with a fake).
 - Backend wake-up: the frontend pings `/health` once on page load (silently, never
   showing an error) so Render's sleeping free-tier server starts waking while the user
   is still on the homepage. Remaining gap: a user who uploads within seconds of landing
@@ -79,8 +81,11 @@ Roughly ordered by severity.
   the same model. Malformed JSON from the pre-quiz/quiz now falls through to the next
   model, but a summary that streams fine and then fails to parse in the browser still
   needs the user's retry.
-- **P2 — No automated tests.** No unit tests, no end-to-end tests. CI now catches type
-  errors and build breaks on every PR, but behavior regressions are still caught by hand.
+- **P2 — Tests cover only the pure logic.** Vitest unit tests cover the `lib/` helpers, the
+  translations and the backend `services/`, but not: quiz scoring (it lives inside the
+  Quiz/PreQuiz screen components, not `lib/`), PDF reading (`lib/pdf.ts`, needs a browser),
+  the `/api` routes and the rate limiter over real HTTP, the streaming summary relay, or
+  end-to-end browser tests. UI regressions and the streaming path are still caught by hand.
 - **P2 — Confirm the Render backend really runs Node 24.** `render.yaml` now sets
   `NODE_VERSION=24`, but Render only applies it if the service is managed by the Blueprint;
   otherwise it uses the newest Node allowed by `engines` (`>=24`, probably 26 already).
@@ -140,7 +145,7 @@ Roughly ordered by severity.
 - [x] Disable "Take the quiz" (with a spinner + note) until the summary has finished
       streaming; it used to silently do nothing.
 - [x] Add a favicon (removes the `/favicon.ico` 404).
-- [x] GitHub Actions CI on every PR/push to `main`: `npm ci`, typecheck and build for
+- [x] GitHub Actions CI on every PR/push to `main`: `npm ci`, typecheck, tests and build for
       frontend and backend (no API keys, no AI calls), plus a README status badge.
 - [x] Branch protection on `main`: require a pull request and the two CI checks (set up
       with `gh` after the CI PR merges and has run on `main`).
@@ -178,9 +183,15 @@ palette + type tokens and web fonts (Newsreader / Libre Franklin) live in
       nobody could see, and a stuck loading screen when a request failed instantly.
 
 ### P2 — Later
-- [ ] Basic automated tests (at minimum: `parseJSON`, `escHtml`, quiz scoring,
-      the `_sum*` streaming extractors, `scoreCopy.comparison`). The split makes
-      this straightforward — the logic now lives in importable `lib/` modules.
+- [x] Basic automated tests with Vitest (`npm test` in each package, and in CI):
+      frontend `parseJSON`, `quiz` (`validateQuestions`, `escHtml`), the `_sum*`
+      streaming extractors, `scoreCopy` and an EN/ES translations-parity check; backend
+      the `openrouter.ts` prompt builders and parsers, `validate.ts`, and the `llm.ts`
+      fallback chain / quota cooldown against a fake `fetch` (no real AI calls).
+- [ ] Test the parts the first suite leaves out: quiz scoring (extract it from the
+      Quiz/PreQuiz screens into `lib/`), `lib/pdf.ts` (needs a browser or a PDF fixture),
+      the `/api` routes and rate limiter over real HTTP, the streaming summary relay, and
+      end-to-end browser tests.
 - [ ] Save/export a summary (e.g. as PDF or plain text) instead of losing it on
       refresh.
 - [ ] Accessibility pass on quiz and upload screens.

@@ -39,7 +39,12 @@ legal-simplifier/
 │   │       └── validate.ts        # input checks: checkContent, cleanSummaryData (pure functions)
 │   ├── .env                       # GEMINI_API_KEY=..., OPENROUTER_KEY=...  (gitignored)
 │   ├── .env.example               # both keys blank + optional settings (committed)
+│   ├── test/                      # Vitest unit tests (outside src/, so never built into dist/)
+│   │   ├── openrouter.test.ts     # prompt builders, JSON parsers, requireQuestions
+│   │   ├── validate.test.ts       # checkContent, cleanSummaryData
+│   │   └── llm.test.ts            # duration/cooldown helpers + fallback chain, against a fake fetch
 │   ├── package.json / tsconfig.json
+│   └── tsconfig.test.json         # typechecks src + test (noEmit); run by `npm run typecheck`
 │
 ├── frontend/                      # Vite + React + TypeScript
 │   ├── public/SampleRentalAgreement.pdf   # served at /SampleRentalAgreement.pdf
@@ -51,6 +56,7 @@ legal-simplifier/
 │   │   ├── styles/global.css    # design tokens + all screen styles (Home + shell reworked; rest ported)
 │   │   ├── i18n/
 │   │   │   ├── translations.ts  # TRANSLATIONS dict verbatim + translate()/tStr()/tArr()
+│   │   │   ├── translations.test.ts # EN and ES have the same keys, no empty values, equal array lengths
 │   │   │   └── useTranslation.ts# hook binding t()/tArr() to the active language
 │   │   ├── state/AppContext.tsx # all app state + the flow functions (see below)
 │   │   ├── lib/
@@ -63,14 +69,15 @@ legal-simplifier/
 │   │   │   ├── summaryStream.ts # _sumPartialStr / _sumCompleteArr / _sumExtractPartial — verbatim
 │   │   │   ├── quiz.ts          # validateQuestions, escHtml — verbatim
 │   │   │   ├── scoreCopy.ts     # pre-quiz / quiz / comparison copy logic — verbatim
+│   │   │   ├── *.test.ts        # Vitest tests for parseJSON, summaryStream, quiz, scoreCopy (next to each)
 │   │   │   └── types.ts         # Question, SummaryData, StreamingPartial
 │   │   ├── components/          # Nav, Footer, Screen, QuizQuestion, SummaryLists, TruncationNote, ErrorBanner
 │   │   └── screens/             # Home, Upload, Loading, PreQuiz, Summary, Quiz, Compare
-│   ├── vite.config.ts           # dev proxy: /api and /health → http://localhost:8787
+│   ├── vite.config.ts           # dev proxy: /api and /health → http://localhost:8787 (Vitest needs no extra config)
 │   └── package.json / tsconfig*.json
 │
 ├── SampleRentalAgreement.pdf     # canonical sample (the copy in frontend/public is what ships)
-├── .github/workflows/ci.yml       # CI: typecheck + build frontend and backend on PRs / pushes to main
+├── .github/workflows/ci.yml       # CI: typecheck + test + build frontend and backend on PRs / pushes to main
 ├── render.yaml                    # Render Blueprint — deploys backend/
 ├── netlify.toml                   # Netlify build config — deploys frontend/
 ├── docs/superpowers/             # spec + plan for the single-file → frontend/backend port
@@ -279,12 +286,31 @@ Runs on every pull request to `main` and every push to `main`. One job, run as a
 matrix over `frontend` and `backend` (in parallel, `fail-fast: false`): checkout →
 `actions/setup-node` (Node 24, the minimum in both `package.json` `engines`, with the npm
 cache keyed on that package's `package-lock.json`) → `npm ci` → `npm run typecheck` →
-`npm run build`. It runs on a pinned `ubuntu-24.04` runner (not `ubuntu-latest`) and uses
+`npm test` → `npm run build`. It runs on a pinned `ubuntu-24.04` runner (not `ubuntu-latest`) and uses
 `actions/checkout@v7` / `actions/setup-node@v7`, which run on Node 24. The checks are named `build (frontend)` and `build (backend)`; those
 exact names are what branch protection on `main` requires. The workflow has read-only
 repo permissions, no secrets and no env vars, so it never touches Gemini or OpenRouter
-(typecheck and build don't start the server). A newer push to the same ref cancels the
-older run (`concurrency`). There are no tests in CI yet — see PRD.md.
+(typecheck, tests and build don't start the server). A newer push to the same ref cancels
+the older run (`concurrency`). See "Testing" below for what the tests cover.
+
+## Testing
+
+Tool: [Vitest](https://vitest.dev) (same version in both packages; 3.x because it supports
+the frontend's Vite 5). Run `npm test` in `frontend/` or `backend/`; CI runs it on every PR.
+
+- **Frontend:** tests sit next to the code as `src/**/*.test.ts` (`lib/parseJSON`, `lib/quiz`,
+  `lib/summaryStream`, `lib/scoreCopy`, and `i18n/translations`, which checks EN/ES parity).
+  They run in the plain `node` environment (no jsdom), so they only test pure functions.
+- **Backend:** tests live in `backend/test/` (outside `src/`, so `npm run build` never emits
+  them). `tsconfig.test.json` typechecks `src` and `test` together; `npm run typecheck` runs
+  both it and the normal config.
+- **No real AI calls, ever.** Tests that touch `services/llm.ts` replace `globalThis.fetch`
+  with a fake that returns queued `Response`s and records each request body, set dummy
+  API keys in the test file, and restore both afterwards. Timeouts and
+  `chatCompletionStream` are not tested.
+- **Not covered:** quiz scoring (it is inside the Quiz/PreQuiz screen components), PDF
+  reading (`lib/pdf.ts`), the `/api` routes and rate limiter over real HTTP, the streaming
+  summary relay, and end-to-end browser tests. See PRD.md.
 
 ## Key Functions (by role)
 

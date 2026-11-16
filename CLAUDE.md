@@ -25,7 +25,7 @@ TypeScript)** pair. The backend is the only AI client; the API keys
 (`GEMINI_API_KEY`, `OPENROUTER_KEY`) live in `backend/.env` (gitignored) and are
 never shipped to the browser.
 
-**CI:** `.github/workflows/ci.yml` runs `npm ci`, `npm run typecheck` and
+**CI:** `.github/workflows/ci.yml` runs `npm ci`, `npm run typecheck`, `npm test` and
 `npm run build` for `frontend/` and `backend/` (Node 24, `ubuntu-24.04`) on every PR to
 `main` and push to `main`. The project requires Node 24 (`engines` `>=24`), and deploys are
 pinned to it (`NODE_VERSION = "24"` in `netlify.toml` and `render.yaml`). It uses no
@@ -142,6 +142,10 @@ Full details in `ARCHITECTURE.md`. Summary:
   frontend shows as `err-rate-limit`. `/health` is not limited. `TRUST_PROXY` (set to `1` in
   `render.yaml`) makes Express see the real IP behind Render's proxy. Input is checked before
   any model call by `backend/src/services/validate.ts` (`checkContent`, `cleanSummaryData`) → 400.
+- **Tests:** Vitest. Frontend tests sit next to the code as `src/**/*.test.ts`; backend
+  tests are in `backend/test/`. Run `npm test` in each package. Tests never call a real
+  model (they use a fake `fetch`). Add or adjust tests when you change `lib/` or
+  `services/` logic.
 - **Errors & copy rules:** never use `window.alert`; show failures through
   `<ErrorBanner/>` with an `err-*` key (throw `UserError(key)` from `lib/`). No hardcoded
   English in the UI — every visible string goes through `TRANSLATIONS` in both EN and ES.
