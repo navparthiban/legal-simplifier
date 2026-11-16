@@ -228,10 +228,21 @@ export function parseQuizJSON(raw: string): unknown {
   }
 }
 
-/** A quiz answer must be a non-empty array; anything else counts as a bad response. */
+/**
+ * A quiz answer must be a non-empty array whose questions each have an options
+ * array and a whole-number `correct` pointing at one of them; anything else
+ * counts as a bad response.
+ */
 export function requireQuestions(parsed: unknown): unknown[] {
-  if (!Array.isArray(parsed) || parsed.length === 0) {
-    throw new Error('The AI returned an unexpected response. Please try again.');
+  const bad = () => new Error('The AI returned an unexpected response. Please try again.');
+  if (!Array.isArray(parsed) || parsed.length === 0) throw bad();
+  for (const item of parsed) {
+    if (typeof item !== 'object' || item === null) throw bad();
+    const { options, correct } = item as { options?: unknown; correct?: unknown };
+    if (!Array.isArray(options)) throw bad();
+    if (typeof correct !== 'number' || !Number.isInteger(correct) || correct < 0 || correct >= options.length) {
+      throw bad();
+    }
   }
   return parsed;
 }

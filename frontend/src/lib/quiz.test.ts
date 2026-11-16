@@ -52,26 +52,65 @@ describe('validateQuestions', () => {
     expect(out).toEqual([good]);
   });
 
-  it('defaults a non-integer or missing correct to 0', () => {
+  it('drops a question whose correct is a non-integer or missing', () => {
     const base = { question: 'Q?', options: ['a', 'b', 'c', 'd'] };
     const out = validateQuestions(
       [{ ...base, correct: '2' }, { ...base, correct: 1.5 }, { ...base }],
       PH,
     );
-    expect(out.map((q) => q.correct)).toEqual([0, 0, 0]);
+    expect(out).toEqual([]);
   });
 
-  it('keeps an out-of-range integer correct as-is when there are 4 or fewer options', () => {
-    const [out] = validateQuestions([{ question: 'Q?', options: ['a', 'b', 'c', 'd'], correct: 9 }], PH);
-    expect(out.correct).toBe(9);
+  it('drops a question whose correct is out of range', () => {
+    const base = { question: 'Q?', options: ['a', 'b', 'c', 'd'] };
+    expect(validateQuestions([{ ...base, correct: 4 }, { ...base, correct: 9 }], PH)).toEqual([]);
   });
 
-  it('with an out-of-range correct and more than 4 options, puts undefined at index 0 (current behavior)', () => {
-    const [out] = validateQuestions(
+  it('drops a question whose correct is negative', () => {
+    const base = { question: 'Q?', options: ['a', 'b', 'c', 'd'] };
+    expect(validateQuestions([{ ...base, correct: -1 }], PH)).toEqual([]);
+  });
+
+  it('drops an out-of-range correct when there are more than 4 options', () => {
+    const out = validateQuestions(
       [{ question: 'Q?', options: ['a', 'b', 'c', 'd', 'e'], correct: 9 }],
       PH,
     );
-    expect(out.options).toEqual([undefined, 'a', 'b', 'c']);
+    expect(out).toEqual([]);
+  });
+
+  it('keeps a valid question next to bad ones, unchanged', () => {
+    const good = { question: 'Q?', options: ['a', 'b', 'c', 'd'], correct: 1 };
+    const out = validateQuestions(
+      [
+        { question: 'bad', options: ['a', 'b', 'c', 'd'], correct: 9 },
+        good,
+        { question: 'bad', options: ['a', 'b', 'c', 'd'], correct: -1 },
+      ],
+      PH,
+    );
+    expect(out).toEqual([good]);
+  });
+
+  it('keeps correct: 3 with 4 options', () => {
+    const q = { question: 'Q?', options: ['a', 'b', 'c', 'd'], correct: 3 };
+    expect(validateQuestions([q], PH)).toEqual([q]);
+  });
+
+  it('checks correct against the original option count, before padding', () => {
+    const dropped = validateQuestions([{ question: 'Q?', options: ['a', 'b'], correct: 2 }], PH);
+    expect(dropped).toEqual([]);
+    const [kept] = validateQuestions([{ question: 'Q?', options: ['a', 'b'], correct: 1 }], PH);
+    expect(kept.options).toEqual(['a', 'b', PH, PH]);
+    expect(kept.correct).toBe(1);
+  });
+
+  it('keeps 5 options with correct: 4, trimmed to 4 with the answer at index 0', () => {
+    const [out] = validateQuestions(
+      [{ question: 'Q?', options: ['a', 'b', 'c', 'd', 'e'], correct: 4 }],
+      PH,
+    );
+    expect(out.options).toEqual(['e', 'a', 'b', 'c']);
     expect(out.correct).toBe(0);
   });
 

@@ -6,7 +6,7 @@ import {
   resetQuotaCooldowns,
   HttpError,
 } from '../src/services/llm.js';
-import { parseQuizJSON, type ChatMessage } from '../src/services/openrouter.js';
+import { parseQuizJSON, requireQuestions, type ChatMessage } from '../src/services/openrouter.js';
 
 const UNEXPECTED = 'The AI returned an unexpected response. Please try again.';
 
@@ -213,6 +213,16 @@ describe('chatCompletion with a parse function', () => {
     const f = installFetch([ok('this is not json'), ok(GOOD)]);
     const out = await chatCompletion(MESSAGES, fast, parseQuizJSON);
     expect(Array.isArray(out)).toBe(true);
+    expect(f.models()).toEqual([FAST[0], FAST[1]]);
+  });
+
+  it('falls through to the next model when the first answer has an out-of-range correct', async () => {
+    const f = installFetch([
+      ok('[{"question":"Q?","options":["a","b","c","d"],"correct":9}]'),
+      ok(GOOD),
+    ]);
+    const out = await chatCompletion(MESSAGES, fast, (raw) => requireQuestions(parseQuizJSON(raw)));
+    expect(out).toEqual([{ question: 'Q?', options: ['a', 'b', 'c', 'd'], correct: 0 }]);
     expect(f.models()).toEqual([FAST[0], FAST[1]]);
   });
 

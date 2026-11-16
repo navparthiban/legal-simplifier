@@ -81,6 +81,9 @@ Roughly ordered by severity.
   the same model. Malformed JSON from the pre-quiz/quiz now falls through to the next
   model, but a summary that streams fine and then fails to parse in the browser still
   needs the user's retry.
+- **P2 — The quiz assumes exactly 5 questions.** The quiz screens say "out of 5" and the score
+  messages are indexed 0–5, but nothing enforces the count: a model returning fewer, or the
+  frontend dropping a malformed question, gives a shorter quiz with the same "out of 5" wording.
 - **P2 — Tests cover only the pure logic.** Vitest unit tests cover the `lib/` helpers, the
   translations and the backend `services/`, but not: quiz scoring (it lives inside the
   Quiz/PreQuiz screen components, not `lib/`), PDF reading (`lib/pdf.ts`, needs a browser),
@@ -154,6 +157,9 @@ Roughly ordered by severity.
 - [x] Retry on the next model when a model answers with malformed JSON, not only
       when it errors or times out. Pre-quiz and quiz only; the streamed summary is
       parsed in the browser, so it is not covered.
+- [x] Reject a quiz answer whose `correct` index doesn't point at one of the question's
+      options (or isn't a whole number): the backend tries the next model, and the
+      frontend drops such a question as a safety net.
 
 ### Design rework (post-parity)
 

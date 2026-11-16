@@ -67,7 +67,7 @@ legal-simplifier/
 │   │   │   ├── image.ts         # encodeImageBase64
 │   │   │   ├── parseJSON.ts     # final summary JSON parse — verbatim
 │   │   │   ├── summaryStream.ts # _sumPartialStr / _sumCompleteArr / _sumExtractPartial — verbatim
-│   │   │   ├── quiz.ts          # validateQuestions, escHtml — verbatim
+│   │   │   ├── quiz.ts          # validateQuestions (drops a question with a bad correct index), escHtml (verbatim)
 │   │   │   ├── scoreCopy.ts     # pre-quiz / quiz / comparison copy logic — verbatim
 │   │   │   ├── *.test.ts        # Vitest tests for parseJSON, summaryStream, quiz, scoreCopy (next to each)
 │   │   │   └── types.ts         # Question, SummaryData, StreamingPartial
@@ -177,8 +177,9 @@ format and JSON parsers are identical for all of them.
 
 For the pre-quiz and quiz the answer is parsed inside the chain (the `parse`
 argument of `chatCompletion`, using `parsePreQuizJSON` / `parseQuizJSON` plus
-`requireQuestions` from `openrouter.ts`), so malformed JSON or a non-array/empty
-answer also moves on to the next model. The summary stream is not covered.
+`requireQuestions` from `openrouter.ts`), so malformed JSON, a non-array/empty
+answer, or a question whose `correct` is not a whole number pointing at one of its options
+also moves on to the next model. The summary stream is not covered.
 
 | Chain | Timeout / model | Used by | Gemini order |
 |---|---|---|---|
