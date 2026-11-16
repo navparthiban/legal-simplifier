@@ -3,7 +3,8 @@
  * read or sent.
  *
  * Every request walks a list of models in order and moves to the next one if
- * the current one errors, times out, or returns nothing. Gemini models come
+ * the current one errors, times out, returns nothing, or (for non-streamed
+ * calls) returns an answer that can't be parsed. Gemini models come
  * first (via Google's OpenAI-compatible endpoint, so the message shape and the
  * SSE stream format match OpenRouter's exactly); OpenRouter `:free` models are
  * the last resort. `openrouter/free` is intentionally never used.
@@ -316,8 +317,16 @@ function requestBody(
 
 // ── non-streaming ─────────────────────────────────────────────────────────────
 
-/** Returns the assistant's text from the first model in the chain that answers. */
-export async function chatCompletion(messages: ChatMessage[], opts: CallOptions): Promise<string> {
+/**
+ * Returns the assistant's text from the first model in the chain that answers.
+ * If `parse` is given, its result is returned instead, and an answer it rejects
+ * (throws on) counts as a failure, so the next model is tried.
+ */
+export async function chatCompletion<T = string>(
+  messages: ChatMessage[],
+  opts: CallOptions,
+  parse?: (raw: string) => T,
+): Promise<T> {
   const { result, model, effort, ms } = await walkChain(opts, async (model, timeoutMs, effort) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(timeoutError()), timeoutMs);
@@ -332,7 +341,7 @@ export async function chatCompletion(messages: ChatMessage[], opts: CallOptions)
       const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
       const content = data?.choices?.[0]?.message?.content;
       if (typeof content !== 'string' || !content.trim()) throw new Error('empty response');
-      return content;
+      return parse ? parse(content) : (content as T);
     } catch (err) {
       if (controller.signal.aborted) throw timeoutError();
       throw err;

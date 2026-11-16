@@ -6,6 +6,7 @@ import {
   buildSummaryMessages,
   parsePreQuizJSON,
   parseQuizJSON,
+  requireQuestions,
   type Language,
 } from '../services/openrouter.js';
 import { checkContent, cleanSummaryData } from '../services/validate.js';
@@ -29,11 +30,12 @@ api.post('/prequiz', async (req: Request, res: Response) => {
     return res.status(400).json({ error: checked.error });
   }
   try {
-    const raw = await chatCompletion(
+    const questions = await chatCompletion(
       buildPreQuizMessages(checked.content, Boolean(isImage), normLanguage(language)),
       { chain: 'fast', isImage: Boolean(isImage), label: 'prequiz' },
+      (raw) => requireQuestions(parsePreQuizJSON(raw)),
     );
-    res.json({ questions: parsePreQuizJSON(raw) });
+    res.json({ questions });
   } catch (err) {
     fail(res, err);
   }
@@ -47,11 +49,12 @@ api.post('/quiz', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'Missing summary data.' });
   }
   try {
-    const raw = await chatCompletion(
+    const questions = await chatCompletion(
       buildQuizMessages(clean, normLanguage(language)),
       { chain: 'quality', isImage: false, label: 'quiz' },
+      (raw) => requireQuestions(parseQuizJSON(raw)),
     );
-    res.json({ questions: parseQuizJSON(raw) });
+    res.json({ questions });
   } catch (err) {
     fail(res, err);
   }
