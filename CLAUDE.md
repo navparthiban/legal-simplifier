@@ -132,7 +132,9 @@ Full details in `ARCHITECTURE.md`. Summary:
   `dangerouslySetInnerHTML` is `prequiz-intro` (a static translation string).
 - **Quiz answer format:** `[{ "question": "...", "options": ["A","B","C","D"],
   "correct": 0 }]` — `correct` is a zero-based index. `validateQuestions` pads /
-  trims to exactly 4 options.
+  trims to exactly 4 options and drops a question whose `correct` is not a whole number
+  pointing at one of its options; on the backend `requireQuestions` rejects such an
+  answer inside the chain, so the next model is tried.
 - **State:** `AppContext` holds `contract`, `preQuizQuestions`/`preQuizPicks`,
   `streamingPartial`, `summaryData`, `quizQuestions`/`quizPicks`, `error` (a translation
   *key*, shown by `<ErrorBanner/>`). Screen-local state resets on navigation because only

@@ -64,6 +64,41 @@ describe('requireQuestions', () => {
   ])('throws on %s', (_label, value) => {
     expect(() => requireQuestions(value)).toThrow(UNEXPECTED);
   });
+
+  const q = (over: Record<string, unknown> = {}) => ({
+    question: 'Q?',
+    options: ['a', 'b', 'c', 'd'],
+    correct: 1,
+    ...over,
+  });
+
+  it('passes a valid 5-question array and returns it', () => {
+    const five = [q(), q(), q(), q(), q()];
+    expect(requireQuestions(five)).toBe(five);
+  });
+
+  it.each([
+    ['correct out of range', q({ correct: 4 })],
+    ['correct negative', q({ correct: -1 })],
+    ['correct non-integer', q({ correct: 1.5 })],
+    ['correct a string', q({ correct: '2' })],
+    ['correct missing', q({ correct: undefined })],
+    ['options missing', q({ options: undefined })],
+    ['options not an array', q({ options: 'abcd' })],
+    ['a null element', null],
+    ['a string element', 'text'],
+  ])('throws for %s', (_label, bad) => {
+    expect(() => requireQuestions([bad])).toThrow(UNEXPECTED);
+  });
+
+  it('rejects the whole array when one of five questions is bad', () => {
+    expect(() => requireQuestions([q(), q(), q({ correct: 9 }), q(), q()])).toThrow(UNEXPECTED);
+  });
+
+  it('passes 5 options with correct: 4', () => {
+    const five = [q({ options: ['a', 'b', 'c', 'd', 'e'], correct: 4 })];
+    expect(requireQuestions(five)).toBe(five);
+  });
 });
 
 const SUMMARY: SummaryData = {

@@ -1,5 +1,7 @@
 /**
- * `validateQuestions` and `escHtml` ported VERBATIM from index.html.
+ * `validateQuestions` was ported from index.html and now also drops a question
+ * whose `correct` is not a whole number pointing at one of its options.
+ * `escHtml` is ported VERBATIM from index.html.
  *
  * Note on escHtml: in the original, quiz/summary strings from the model are
  * injected via innerHTML, so escHtml is a security necessity. In this React port
@@ -18,11 +20,15 @@ export function validateQuestions(questions: any[], placeholder: string): Questi
         q &&
         typeof q.question === 'string' &&
         Array.isArray(q.options) &&
-        q.options.length >= 1,
+        q.options.length >= 1 &&
+        // Never show a question with no, or a wrongly, marked answer.
+        Number.isInteger(q.correct) &&
+        q.correct >= 0 &&
+        q.correct < q.options.length,
     )
     .map((q) => {
       let opts = q.options.map(String);
-      let correct = Number.isInteger(q.correct) ? q.correct : 0;
+      let correct = q.correct;
 
       // Pad to exactly 4
       while (opts.length < 4) opts.push(PLACEHOLDER);
